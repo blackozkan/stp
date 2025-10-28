@@ -13,7 +13,11 @@ import warnings
 import requests
 import io
 import os
+import logging
+
+# Tüm uyarıları kapat
 warnings.filterwarnings('ignore')
+logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 
 # Telegram bilgilerini environment variable'dan al
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -63,30 +67,64 @@ class BISTScanner:
     """BIST Hisse Tarama Sınıfı"""
     
     def __init__(self, telegram_notifier=None):
+        # Güncellenmiş ve doğrulanmış BIST hisse listesi
+        # Küçük/orta sermayeli ve aktif işlem gören hisseler
         self.symbols = [
-            'CRDFA.IS', 'HDGS.IS', 'ATSYH.IS', 'BURCE.IS', 'PAPIL.IS',
-            'DUNYH.IS', 'DOBUR.IS', 'BURVA.IS', 'CEOEM.IS', 'UFUK.IS',
-            'EGECY.IS', 'TEKTU.IS', 'LYDHO.IS', 'IZINV.IS', 'MAGEN.IS',
-            'BULGS.IS', 'PCILT.IS', 'DOGUB.IS', 'DMSAS.IS', 'BMEKS.IS',
-            'RODRG.IS', 'SANFM.IS', 'PNSUT.IS', 'YAPRK.IS', 'EMKEL.IS',
-            'BALAT.IS', 'OSTIM.IS', 'RALYH.IS', 'SNPAM.IS', 'MRSHL.IS',
-            'ULAS.IS', 'MNDRS.IS', 'TMPOL.IS', 'DZGYO.IS', 'KSTUR.IS'
+            # Büyük Holdingler (Likidite için)
+            'THYAO.IS', 'GARAN.IS', 'AKBNK.IS', 'ISCTR.IS', 'YKBNK.IS',
+            'TUPRS.IS', 'PETKM.IS', 'SAHOL.IS', 'KCHOL.IS', 'TTKOM.IS',
+            
+            # Yatırım Ortaklıkları
+            'GOZDE.IS', 'VKING.IS', 'DESA.IS', 'SANKO.IS', 'PENGD.IS',
+            
+            # Holding ve Çeşitli
+            'DOHOL.IS', 'TMPOL.IS', 'ITTFH.IS', 'OZKGY.IS', 'IHLAS.IS',
+            
+            # Tekstil
+            'BRMEN.IS', 'KORDS.IS', 'YUNSA.IS', 'BLCYT.IS', 'DAGI.IS',
+            
+            # Gıda
+            'TATGD.IS', 'KNFRT.IS', 'PETUN.IS', 'ERSU.IS', 'CCOLA.IS',
+            
+            # Kimya
+            'SODA.IS', 'ALKIM.IS', 'BRKSN.IS', 'BAGFS.IS', 'SASA.IS',
+            
+            # Metal
+            'BURCE.IS', 'IZMDC.IS', 'SARKY.IS', 'OZBAL.IS', 'CEMTS.IS',
+            
+            # İnşaat ve Malzeme
+            'ORGE.IS', 'DEVA.IS', 'EMKEL.IS', 'KLMSN.IS', 'EGEEN.IS',
+            
+            # Teknoloji
+            'ALCTL.IS', 'ARENA.IS', 'INDES.IS', 'LOGO.IS', 'Karel.IS',
+            
+            # Turizm
+            'MAALT.IS', 'PKENT.IS', 'UTPYA.IS', 'METUR.IS', 'AYCES.IS',
+            
+            # Enerji
+            'AYEN.IS', 'ZOREN.IS', 'AKSUE.IS', 'HUNER.IS', 'AKENR.IS',
+            
+            # GYO
+            'EKGYO.IS', 'SNGYO.IS', 'ISGYO.IS', 'RYGYO.IS', 'TRGYO.IS',
+            
+            # Diğer
+            'YAPRK.IS', 'MRSHL.IS', 'ULAS.IS', 'OLMIP.IS', 'ASUZU.IS',
+            'BIMAS.IS', 'CLEBI.IS', 'DOAS.IS', 'ENKAI.IS', 'FROTO.IS'
         ]
         
         self.results = []
         self.telegram = telegram_notifier
+        self.failed_symbols = []  # Başarısız hisseleri takip et
         
     def get_stock_data(self, symbol, period='6mo'):
-        """Hisse verisini çek"""
+        """Hisse verisini çek - sessiz mod"""
         try:
             stock = yf.Ticker(symbol)
             df = stock.history(period=period)
             if len(df) > 50:
                 return df
-            print(f"  ⚠️ {symbol}: Yetersiz veri ({len(df)} gün)")
             return None
-        except Exception as e:
-            print(f"  ❌ {symbol}: Veri çekme hatası - {str(e)[:50]}")
+        except Exception:
             return None
     
     def calculate_rsi(self, df, period=14):
@@ -246,17 +284,20 @@ class BISTScanner:
             start_msg += f"📅 Tarih: {datetime.now().strftime('%d.%m.%Y')}"
             self.telegram.send_message(start_msg)
         
+        # Sessiz mod - sadece ilerleme göster
         for i, symbol in enumerate(self.symbols):
             result = self.analyze_stock(symbol)
             if result:
                 self.results.append(result)
-                print(f"[{i+1}/{len(self.symbols)}] {symbol} ✓ Skor: {result['score']:.0f}")
+                print(f"✓ [{i+1}/{len(self.symbols)}] {symbol.replace('.IS', '')} - Skor: {result['score']:.0f}")
             else:
-                print(f"[{i+1}/{len(self.symbols)}] {symbol} ✗")
+                self.failed_symbols.append(symbol)
+                print(f"✗ [{i+1}/{len(self.symbols)}] {symbol.replace('.IS', '')}")
         
         # Sonuçları DataFrame'e çevir
         if len(self.results) == 0:
             print("\n❌ Hiçbir hisse analiz edilemedi!")
+            print(f"Başarısız hisseler: {len(self.failed_symbols)}")
             self.df_results = pd.DataFrame()
             return self.df_results
         
@@ -266,7 +307,14 @@ class BISTScanner:
         if 'score' in self.df_results.columns:
             self.df_results = self.df_results.sort_values('score', ascending=False)
         
-        print(f"\n✅ Tarama tamamlandı! Toplam analiz: {len(self.df_results)}")
+        print(f"\n" + "="*60)
+        print(f"✅ TARAMA TAMAMLANDI!")
+        print(f"📊 Başarılı analiz: {len(self.results)}")
+        print(f"❌ Başarısız: {len(self.failed_symbols)}")
+        if len(self.failed_symbols) > 0 and len(self.failed_symbols) <= 5:
+            print(f"   Başarısız hisseler: {', '.join([s.replace('.IS', '') for s in self.failed_symbols])}")
+        print("="*60)
+        
         return self.df_results
     
     def send_telegram_report(self, top_n=10, min_score=50):
@@ -277,23 +325,29 @@ class BISTScanner:
         # DataFrame boşsa çık
         if len(self.df_results) == 0:
             msg = "❌ *Hiçbir hisse analiz edilemedi!*\n\n"
-            msg += "Veri çekme sorunları olabilir."
+            msg += f"Toplam denenen: {len(self.symbols)}\n"
+            msg += f"Başarısız: {len(self.failed_symbols)}"
             self.telegram.send_message(msg)
             return
         
         top_candidates = self.df_results[self.df_results['score'] >= min_score].head(top_n)
         
         if len(top_candidates) == 0:
-            msg = "❌ *Kriterlere Uygun Hisse Bulunamadı*\n\n"
-            msg += f"Minimum skor: {min_score}\n"
+            msg = "⚠️ *Kriterlere Uygun Hisse Bulunamadı*\n\n"
+            msg += f"📊 Taranan: {len(self.df_results)}\n"
+            msg += f"❌ Başarısız: {len(self.failed_symbols)}\n"
+            msg += f"⚡ Minimum skor: {min_score}\n"
             if len(self.df_results) > 0:
-                msg += f"En yüksek skor: {self.df_results['score'].max():.0f}"
+                msg += f"🏆 En yüksek skor: {self.df_results['score'].max():.0f}\n\n"
+                msg += "💡 Min skoru düşürmeyi deneyin."
             self.telegram.send_message(msg)
             return
         
         # Özet
         summary = f"✅ *TARAMA TAMAMLANDI*\n\n"
-        summary += f"📊 Taranan: {len(self.df_results)} | Uygun: {len(top_candidates)}\n"
+        summary += f"📊 Başarılı: {len(self.df_results)} | Uygun: {len(top_candidates)}\n"
+        if len(self.failed_symbols) > 0:
+            summary += f"❌ Başarısız: {len(self.failed_symbols)}\n"
         summary += f"⏰ {datetime.now().strftime('%H:%M:%S')}\n"
         summary += f"━━━━━━━━━━━━━━━━━━━━\n\n"
         summary += f"🏆 *TOP {len(top_candidates)} ADAY:*\n\n"
@@ -400,8 +454,8 @@ def main():
     # Tarama
     scanner.scan_all_stocks()
     
-    # Raporlar
-    scanner.send_telegram_report(top_n=10, min_score=40)
+    # Raporlar (min_score düşürüldü - daha fazla hisse görmek için)
+    scanner.send_telegram_report(top_n=15, min_score=30)
     scanner.create_and_send_chart()
     
     # Bitiş mesajı
