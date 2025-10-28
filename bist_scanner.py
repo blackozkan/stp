@@ -90,7 +90,7 @@ class BISTScanner:
     "RUBNS.IS", "RUZYE.IS", "RYSAS.IS", "SAFKR.IS", "SAHOL.IS", "SAMAT.IS",
     "SANEL.IS", "SANFM.IS", "SANKO.IS", "SARKY.IS", "SASA.IS", "SAYAS.IS",
     "SDTTR.IS", "SEGMn.IS", "SEGYO.IS", "SEKfk.IS", "SEKUR.IS", "SELEC.IS",
-    "SELVA.IS", "SERNT.IS", "SEYKM.IS", "SILVR.IS", "SISE.IS", "SKBNK.IS", 
+    "SELVA.IS", "SERNT.IS", "SEYKM.IS", "SILVR.IS", "SISE.IS", "SKBNK.IS", # SİSE -> SISE
     "SKTAS.IS", "SKYLP.IS", "SKYMD.IS", "SMART.IS", "SMRTG.IS", "SMRVA.IS",
     "SNICA.IS", "SNKRN.IS", "SNPAM.IS", "SODSN.IS", "SOKE.IS", "SOKM.IS",
     "SONME.IS", "SRVGY.IS", "SUMAS.IS", "SUNTK.IS", "SURGY.IS", "SUWEN.IS",
@@ -118,8 +118,8 @@ class BISTScanner:
     "AVPGY.IS", "AYCES.IS", "AYDEM.IS", "AYEN.IS", "AYES.IS", "AYGAZ.IS",
     "AZTEK.IS", "BAGFS.IS", "BAHKM.IS", "BAKAB.IS", "BALAT.IS", "BALSU.IS",
     "BANVT.IS", "BARMA.IS", "BASCM.IS", "BASGZ.IS", "BAYRK.IS", "BEGYO.IS",
-    "BERA.IS", "BESLR.IS", "BEYAZ.IS", "BFREN.IS", "BIENY.IS", "BIGCH.IS", 
-    "BIOEN.IS", "BIZIM.IS", "BJKAS.IS", "BLCYT.IS", "BLUME.IS", "BMSCH.IS",
+    "BERA.IS", "BESLR.IS", "BEYAZ.IS", "BFREN.IS", "BIENY.IS", "BIGCH.IS", # BİENY -> BIENY, BİGCH -> BIGCH
+    "BIOEN.IS", "BIZIM.IS", "BJKAS.IS", "BLCYT.IS", "BLUME.IS", "BMSCH.IS", # BİOEN -> BIOEN, BİZİM -> BIZIM
     "BMSTL.IS", "BNTAS.IS", "BObet.IS", "BORLS.IS", "BORSK.IS", "BOSSA.IS",
     "BRISA.IS", "BRKO.IS", "BRKSN.IS", "BRKVY.IS", "BRLSM.IS", "BRMEN.IS",
     "BRSAN.IS", "BRYAT.IS", "BSOKE.IS", "BTCIM.IS", "BULGs.IS", "BURCE.IS",
@@ -137,9 +137,9 @@ class BISTScanner:
     "EGSER.IS", "EKIZ.IS", "EKOS.IS", "EKSUN.IS", "ELITE.IS", "EMKEL.IS",
     "EMNIS.IS", "ENDAe.IS", "ENERY.IS", "ENJSA.IS", "ENKAI.IS", "ENSRI.IS",
     "ENTRA.IS", "EPLAS.IS", "ERBOS.IS", "ERCb.IS", "EREGL.IS", "ERSU.IS",
-    "ESCAR.IS", "ESCOM.IS", "ESEN.IS", "ETILR.IS", "ETYAT.IS", "EUHOL.IS", 
+    "ESCAR.IS", "ESCOM.IS", "ESEN.IS", "ETILR.IS", "ETYAT.IS", "EUHOL.IS", # ETİLER -> ETILER
     "EUKYO.IS", "EUPWR.IS", "EUREN.IS", "EUYO.IS", "FADE.IS", "FENER.IS",
-    "FLAP.IS", "FMIzp.IS", "FONET.IS", "FORMT.IS", "FORTE.IS", "FRIGO.IS", 
+    "FLAP.IS", "FMIzp.IS", "FONET.IS", "FORMT.IS", "FORTE.IS", "FRIGO.IS", # FMİP -> FMIP
      "MAALT.IS", "MACKO.IS","MAGEN.IS","MAKIM.IS", "MAKTK.IS", "MANAS.IS", "MARBL.IS",
     "MARKA.IS", "MARMR.IS",  "MARTI.IS", "MAVI.IS", "MEDTR.IS", "MEGAP.IS", "MEGMT.IS",
     "MEKAG.IS", "MEPET.IS", "MERCN.IS", "MERIT.IS", "MERKO.IS", "METRO.IS", "MGROS.IS",
@@ -150,7 +150,7 @@ class BISTScanner:
     "IHGZT.IS", "IHLAS.IS", "IHLGM.IS", "IHYAY.IS", "IMASM.IS", "INDES.IS",
     "INFO.IS", "INGRM.IS", "INTEK.IS", "INTEM.IS", "INVEO.IS", "INVES.IS",
     "IPEKE.IS", "ISBIR.IS", "ISDMR.IS", "ISFIN.IS", "ISKPL.IS", "ISMEN.IS",
-    "ISSEN.IS", "IZMDC.IS", "IZenr.IS", "IZFAS.IS", "IZINV"
+    "ISSEN.IS", "IZMDC.IS", "IZenr.IS", "IZFAS.IS", "IZINV.IS"
         ]
         
         self.results = []
@@ -333,8 +333,17 @@ class BISTScanner:
             else:
                 print(f"[{i+1}/{len(self.symbols)}] {symbol} ✗")
         
+        # Sonuçları DataFrame'e çevir
+        if len(self.results) == 0:
+            print("\n❌ Hiçbir hisse analiz edilemedi!")
+            self.df_results = pd.DataFrame()
+            return self.df_results
+        
         self.df_results = pd.DataFrame(self.results)
-        self.df_results = self.df_results.sort_values('score', ascending=False)
+        
+        # Skor kolonu varsa sırala
+        if 'score' in self.df_results.columns:
+            self.df_results = self.df_results.sort_values('score', ascending=False)
         
         print(f"\n✅ Tarama tamamlandı! Toplam analiz: {len(self.df_results)}")
         return self.df_results
@@ -475,5 +484,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
