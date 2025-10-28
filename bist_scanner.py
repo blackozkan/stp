@@ -64,93 +64,13 @@ class BISTScanner:
     
     def __init__(self, telegram_notifier=None):
         self.symbols = [
-            'JANTs', 'KAPLM', 'KAREL', 'KARSN', 'KARTN', 'KATMR',
-    'KAYSE', 'KBORU', 'KCAER', 'KCHOL', 'KENT', 'KERVN',
-    'KFEIN', 'KIMMR', 'KLKIM', 'KLMSN', 'KLNMA', 'KLRHO',
-    'KLSER', 'KLSYN', 'KLYPv', 'KMPUR', 'KNFRT', 'KOCMT',
-    'KONKA', 'KONTR', 'KONYA', 'KOPOL', 'KORDS', 'KOTON',
-    'KOZAA', 'KOZAL', 'KRDMA', 'KRONT', 'KRPLS', 'KRSTL',
-    'KRTEK', 'KRVGD', 'KSTUR', 'KTLEV', 'KUTPO', 'KUVVA',
-    'KZBGY', 'KZGYO', 'LIDER', 'LIDFA', 'LILAK', 'LINK',
-    'LKMNH', 'Lmkdc', 'LOGO', 'LRSHO', 'LUKSK', 'LYDHO',
-    'LYDYE', 'MAALT', 'MACKO', 'MAGEN', 'MAKIM', 'MAKTK',
-    'MANAS', 'MARBL', 'MARKA', 'MARMr', 'MARTI', 'MNDTR',
-    'MOBTL', 'MOGAN', 'MOPAS', 'MPARK', 'MRSHL', 'MTRKS',
-    'MTRYO', 'MZHLD', 'NATEN', 'NETAS', 'NIBAS', 'NTGAZ',
-    'NTHOL', 'NUHCM', 'OBAMS', 'OBASE', 'ODAS', 'ODINE',
-    'OFSYM', 'ONCSM', 'ONRYT', 'ORCAY', 'ORGE', 'ORMA',
-    'OSMEN', 'OSTIM', 'OTKAR', 'OTTO', 'OYAKC', 'OYAYO',
-    'OYLUM', 'OYYAT', 'OZATD', 'OZrdn', 'OZSUB', 'OZGYO',
-    'PAGYO', 'PAmEL', 'PAPIL', 'PARSN', 'PASEU', 'PATEK',
-    'PCILT', 'PEKGY', 'PENGD', 'PENTA', 'PETKM', 'PETUN',
-    'PGSUS', 'PINSU', 'PKART', 'PKENT', 'PLTUR',
-    'PNLSN', 'PNSUT', 'POLHO', 'POLTK', 'PRdGS', 'PRKAB',
-    'PRKME', 'PRZMA', 'PSDTc', 'QNBtr', 'QNBfk', 'QUAGR', 'RALYH',
-    'RAYsG', 'REEDR', 'ROYAl', 'RNPOL', 'RODRg', 'RTALB',
-    'RUBNS', 'RUZYE', 'RYSAS', 'SAFKR', 'SAHOL', 'SAMAT',
-    'SANEL', 'SANFM', 'SANKO', 'SARKY', 'SASA', 'SAYAS',
-    'SDTTR', 'SEGMn', 'SEGYO', 'SEKfk', 'SEKUR', 'SELEC',
-    'SELVA', 'SERNT', 'SEYKM', 'SILVR', 'SISE', 'SKBNK', 
-    'SKTAS', 'SKYLP', 'SKYMD', 'SMART', 'SMRTG', 'SMRVA',
-    'SNICA', 'SNKRN', 'SNPAM', 'SODSN', 'SOKE', 'SOKM',
-    'SONME', 'SRVGY', 'SUMAS', 'SUNTK', 'SURGY', 'SUWEN',
-    'TABGD', 'TARKM', 'TATEN', 'TATGD', 'TAVHL', 'TBORG',
-    'TCELL', 'Tckrc', 'TDGYO', 'TEKTU', 'TERA', 'TEZOL',
-    'TGSAS', 'THYAO', 'TKFEN', 'TKNsa', 'TLMAN', 'TMPOL',
-    'TMSN', 'TNZTP', 'TOASO', 'TRCAS', 'TRGYO', 'TRILC',
-    'TSKB', 'TSPOR', 'TTKOM', 'TTRaK', 'TUCLk', 'TUKAS',
-    'TUPRS', 'TUREX', 'TURG', 'TURSG', 'UFUK', 'ULAS',
-    'ULKER', 'ULUFA', 'ULUSE', 'ULUun', 'UNLU', 'USAK',
-    'VAKBN', 'VAKFN', 'VAKKO', 'VANGD', 'VBTYZ', 'VERUS',
-    'VESBE', 'VESTL', 'VKFYO', 'VKING', 'VRGYO', 'VSNMD',
-    'YAPRK', 'YATAS', 'YAYLA', 'YBTAS', 'YEOTK', 'YESIL',
-    'YGGYO', 'YIGIT', 'YKBNK', 'YKSLN', 'YONGA', 'YUNSA',
-    'YYAPI', 'YYLGD', 'ZEDUR', 'ZOREN', 'ZRGYO', 'A1CAP',
-    'A1YEN', 'ACSEL', 'ADEL', 'ADESE', 'ADGYO', 'AEFES',
-    'AFYON', 'AGESA', 'AGHOL', 'AGROT', 'AHSGY', 'AKBNK',
-    'AKCNS', 'AKENR', 'AKFIS', 'AKFYE', 'AKGRT', 'AKSA',
-    'AKSEN', 'AKSUE', 'AKYHO', 'ALARK', 'ALBRK', 'ALCAR',
-    'ALCTL', 'ALFAS', 'ALKA', 'ALKIM', 'ALKLC',
-    'ALTNY', 'ALVES', 'ANELE', 'ANGEN', 'ANHYT', 'ANSGR',
-    'ARASE', 'ARCLK', 'ARDYZ', 'ARENA', 'ARMGD', 'ARSAN',
-    'ARTMS', 'ARZUM', 'ASELS', 'ASTOR', 'ASUZU', 'ATATP',
-    'ATEKS', 'ATLAS', 'ATSYH', 'AVGYO', 'AVHOL', 'AVOD',
-    'AVPGY', 'AYCES', 'AYDEM', 'AYEN', 'AYES', 'AYGAZ',
-    'AZTEK', 'BAGFS', 'BAHKM', 'BAKAB', 'BALAT', 'BALSU',
-    'BANVT', 'BARMA', 'BASCM', 'BASGZ', 'BAYRK', 'BEGYO',
-    'BERA', 'BESLR', 'BEYAZ', 'BFREN', 'BIENY', 'BIGCH', 
-    'BIOEN', 'BIZIM', 'BJKAS', 'BLCYT', 'BLUME', 'BMSCH',
-    'BMSTL', 'BNTAS', 'BObet', 'BORLS', 'BORSK', 'BOSSA',
-    'BRISA', 'BRKO', 'BRKSN', 'BRKVY', 'BRLSM', 'BRMEN',
-    'BRSAN', 'BRYAT', 'BSOKE', 'BTCIM', 'BULGs', 'BURCE',
-    'BURVA', 'BVSAN', 'BYDNR', 'CANTE', 'CASA', 'CATES',
-    'CCOLA', 'CELHA', 'CEMAS', 'CEMTS', 'CEMZY', 'CEDEM',
-    'Cmbtn', 'CIMSA', 'CLEBI', 'CMBTN', 'CMEnT', 'CONSE',
-    'COSMO', 'CRDFA', 'CRFSA', 'CUSAN', 'CVKmD', 'CWENE',
-    'DAGI', 'DAPGM', 'DARDL', 'DCTTr', 'DENGE', 'DERHL',
-    'DERIM', 'DESA', 'DESPC', 'DEVA', 'DGATE', 'DGNMO',
-    'DIRIT', 'DITAS', 'DMRgd', 'DMSAS', 'DNISI', # DİRİT -> DIRIT
-    'DOAS', 'DOBUR', 'DOFER', 'DOFRB', 'DOGUB', 'DOHOL',
-    'DOKTA', 'DSTKF', 'DUNYH', 'DURDO', 'DURkn', 'DYOBY',
-    'DZgYO', 'EBEBK', 'ECILC', 'ECZYT', 'EDATA', 'EDIP',
-    'EFORc', 'EGEEN', 'EGEGY', 'EGEPO', 'EGgUb', 'EGPRO',
-    'EGSER', 'EKIZ', 'EKOS', 'EKSUN', 'ELITE', 'EMKEL',
-    'EMNIS', 'ENDAe', 'ENERY', 'ENJSA', 'ENKAI', 'ENSRI',
-    'ENTRA', 'EPLAS', 'ERBOS', 'ERCb', 'EREGL', 'ERSU',
-    'ESCAR', 'ESCOM', 'ESEN', 'ETILR', 'ETYAT', 'EUHOL', 
-    'EUKYO', 'EUPWR', 'EUREN', 'EUYO', 'FADE', 'FENER',
-    'FLAP', 'FMIzp', 'FONET', 'FORMT', 'FORTE', 'FRIGO', 
-     'MAALT', 'MACKO','MAGEN','MAKIM', 'MAKTK', 'MANAS', 'MARBL',
-    'MARKA', 'MARMR',  'MARTI', 'MAVI', 'MEDTR', 'MEGAP', 'MEGMT',
-    'MEKAG', 'MEPET', 'MERCN', 'MERIT', 'MERKO', 'METRO', 'MGROS',
-    'MHRGY', 'MIATK', 'MMCAS', 'MNDRS', 'MNDTR', 'MOBTL', 'MOGAN',
-    'MOPAS', 'MPARK', 'MRGYO', 'MRSHL', 'MSGYO', 'MTRKS', 'MTRYO',
-    'MZHLD','HEKTS', 'HKTM', 'HDFGS', 'HRKET', 'HTTBt', 'HUBVC', 'HUNER',
-    'HURGZ', 'ICBCT', 'ICUGS', 'IEYHO', 'IHAAS', 'IHEVA',
-    'IHGZT', 'IHLAS', 'IHLGM', 'IHYAY', 'IMASM', 'INDES',
-    'INFO', 'INGRM', 'INTEK', 'INTEM', 'INVEO', 'INVES',
-    'IPEKE', 'ISBIR', 'ISDMR', 'ISFIN', 'ISKPL', 'ISMEN',
-    'ISSEN', 'IZMDC', 'IZenr', 'IZFAS', 'IZINV'
+            'CRDFA.IS', 'HDGS.IS', 'ATSYH.IS', 'BURCE.IS', 'PAPIL.IS',
+            'DUNYH.IS', 'DOBUR.IS', 'BURVA.IS', 'CEOEM.IS', 'UFUK.IS',
+            'EGECY.IS', 'TEKTU.IS', 'LYDHO.IS', 'IZINV.IS', 'MAGEN.IS',
+            'BULGS.IS', 'PCILT.IS', 'DOGUB.IS', 'DMSAS.IS', 'BMEKS.IS',
+            'RODRG.IS', 'SANFM.IS', 'PNSUT.IS', 'YAPRK.IS', 'EMKEL.IS',
+            'BALAT.IS', 'OSTIM.IS', 'RALYH.IS', 'SNPAM.IS', 'MRSHL.IS',
+            'ULAS.IS', 'MNDRS.IS', 'TMPOL.IS', 'DZGYO.IS', 'KSTUR.IS'
         ]
         
         self.results = []
@@ -163,9 +83,10 @@ class BISTScanner:
             df = stock.history(period=period)
             if len(df) > 50:
                 return df
+            print(f"  ⚠️ {symbol}: Yetersiz veri ({len(df)} gün)")
             return None
         except Exception as e:
-            print(f"Veri çekme hatası ({symbol}): {e}")
+            print(f"  ❌ {symbol}: Veri çekme hatası - {str(e)[:50]}")
             return None
     
     def calculate_rsi(self, df, period=14):
@@ -353,12 +274,20 @@ class BISTScanner:
         if not self.telegram:
             return
         
+        # DataFrame boşsa çık
+        if len(self.df_results) == 0:
+            msg = "❌ *Hiçbir hisse analiz edilemedi!*\n\n"
+            msg += "Veri çekme sorunları olabilir."
+            self.telegram.send_message(msg)
+            return
+        
         top_candidates = self.df_results[self.df_results['score'] >= min_score].head(top_n)
         
         if len(top_candidates) == 0:
             msg = "❌ *Kriterlere Uygun Hisse Bulunamadı*\n\n"
             msg += f"Minimum skor: {min_score}\n"
-            msg += f"En yüksek skor: {self.df_results['score'].max():.0f}"
+            if len(self.df_results) > 0:
+                msg += f"En yüksek skor: {self.df_results['score'].max():.0f}"
             self.telegram.send_message(msg)
             return
         
@@ -391,6 +320,7 @@ class BISTScanner:
     def create_and_send_chart(self):
         """Grafik oluştur ve gönder"""
         if len(self.df_results) == 0 or not self.telegram:
+            print("⚠️ Grafik oluşturulamıyor: Sonuç yok")
             return
         
         try:
@@ -399,13 +329,14 @@ class BISTScanner:
             
             # 1. Top 10 Skor
             top_10 = self.df_results.head(10)
-            colors = ['#2ecc71' if s >= 70 else '#f39c12' if s >= 50 else '#e74c3c' 
-                      for s in top_10['score']]
-            axes[0, 0].barh(top_10['symbol'], top_10['score'], color=colors)
-            axes[0, 0].set_xlabel('Skor')
-            axes[0, 0].set_title('En Yüksek Skorlu 10 Hisse')
-            axes[0, 0].invert_yaxis()
-            axes[0, 0].grid(axis='x', alpha=0.3)
+            if len(top_10) > 0:
+                colors = ['#2ecc71' if s >= 70 else '#f39c12' if s >= 50 else '#e74c3c' 
+                          for s in top_10['score']]
+                axes[0, 0].barh(top_10['symbol'], top_10['score'], color=colors)
+                axes[0, 0].set_xlabel('Skor')
+                axes[0, 0].set_title('En Yüksek Skorlu 10 Hisse')
+                axes[0, 0].invert_yaxis()
+                axes[0, 0].grid(axis='x', alpha=0.3)
             
             # 2. RSI Dağılımı
             axes[0, 1].scatter(self.df_results['rsi'], self.df_results['score'], 
