@@ -3,7 +3,7 @@ name: BIST Hisse Taraması
 on:
   schedule:
     # Her gün 06:30, 09:00, 15:00 UTC (Türkiye: 09:30, 12:00, 18:00)
-    - cron: '30 6 * * 1-5'   # Hafta içi 09:30 TR
+    - cron: '56 6 * * 1-5'   # Hafta içi 09:30 TR
     - cron: '0 9 * * 1-5'    # Hafta içi 12:00 TR
     - cron: '0 15 * * 1-5'   # Hafta içi 18:00 TR
   
