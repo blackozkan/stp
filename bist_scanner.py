@@ -1,320 +1,357 @@
 """
-BIST HİSSE TARAMA - PROFESYONEL VERSİYON
-Tüm teknik göstergeler dahil - GitHub için optimize edilmiş
+BIST HİSSE TARAMA - GitHub Actions İçin Optimize Edilmiş
+Yahoo Finance alternatifi + hata toleransı + retry mekanizması
 """
 
-import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime
+from datetime import datetime, timedelta
 import warnings
 import requests
 import io
 import time
 import os
 import logging
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Ayarlar
-yf.pdr_override()
-logging.getLogger('yfinance').setLevel(logging.CRITICAL)
 warnings.filterwarnings('ignore')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Telegram
-BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8310745808:AAGpnfSna6-6AJ5I2FNKyES2Rdj_Xqu4b7o')
-CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '1801093830')
+# Telegram - Sadece environment variable'dan al
+BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 class TelegramNotifier:
     def __init__(self, bot_token, chat_id):
         self.bot_token = bot_token
         self.chat_id = chat_id
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
+        self.session = self._create_session()
+    
+    def _create_session(self):
+        session = requests.Session()
+        retry = Retry(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
     
     def send_message(self, text):
+        if not self.bot_token or not self.chat_id:
+            logger.warning("Telegram credentials missing, skipping message")
+            return False
         try:
             url = f"{self.base_url}/sendMessage"
             data = {'chat_id': self.chat_id, 'text': text, 'parse_mode': 'Markdown'}
-            requests.post(url, data=data, timeout=10)
-        except:
-            pass
+            response = self.session.post(url, data=data, timeout=10)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Telegram message error: {e}")
+            return False
     
     def send_photo(self, image_buffer, caption=''):
+        if not self.bot_token or not self.chat_id:
+            return False
         try:
             url = f"{self.base_url}/sendPhoto"
             image_buffer.seek(0)
             files = {'photo': image_buffer}
             data = {'chat_id': self.chat_id, 'caption': caption}
-            requests.post(url, files=files, data=data, timeout=30)
-        except:
-            pass
+            response = self.session.post(url, files=files, data=data, timeout=30)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Telegram photo error: {e}")
+            return False
+
+
+class AlternativeDataFetcher:
+    """Yahoo Finance yerine alternatif veri kaynakları"""
+    
+    def __init__(self):
+        self.session = self._create_session()
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'tr-TR,tr;q=0.9',
+        }
+    
+    def _create_session(self):
+        session = requests.Session()
+        retry = Retry(
+            total=5,
+            backoff_factor=2,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=20)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
+    
+    def fetch_yahoo_alternative(self, symbol, period_days=90):
+        """Yahoo Finance v8 API (daha güvenilir)"""
+        try:
+            symbol_clean = symbol.replace('.IS', '.IS')
+            end_time = int(time.time())
+            start_time = end_time - (period_days * 24 * 60 * 60)
+            
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol_clean}"
+            params = {
+                'period1': start_time,
+                'period2': end_time,
+                'interval': '1d',
+                'events': 'history'
+            }
+            
+            response = self.session.get(url, params=params, headers=self.headers, timeout=15)
+            
+            if response.status_code != 200:
+                logger.warning(f"{symbol}: HTTP {response.status_code}")
+                return None
+            
+            data = response.json()
+            
+            if 'chart' not in data or 'result' not in data['chart']:
+                return None
+            
+            result = data['chart']['result'][0]
+            
+            if 'timestamp' not in result or not result['timestamp']:
+                return None
+            
+            indicators = result['indicators']['quote'][0]
+            
+            df = pd.DataFrame({
+                'Date': pd.to_datetime(result['timestamp'], unit='s'),
+                'Open': indicators.get('open', []),
+                'High': indicators.get('high', []),
+                'Low': indicators.get('low', []),
+                'Close': indicators.get('close', []),
+                'Volume': indicators.get('volume', [])
+            })
+            
+            df = df.dropna(subset=['Close'])
+            df = df.set_index('Date')
+            
+            if len(df) < 20:
+                return None
+            
+            logger.info(f"{symbol}: {len(df)} günlük veri alındı")
+            return df
+            
+        except Exception as e:
+            logger.error(f"{symbol} fetch error: {e}")
+            return None
+    
+    def fetch_investing_com(self, symbol):
+        """Investing.com scraping (yedek)"""
+        # Bu kısım daha karmaşık, şimdilik atlıyoruz
+        pass
 
 
 class BISTScanner:
     def __init__(self, telegram_notifier=None):
-        # Doğrulanmış çalışan BIST hisseleri
+        # Genişletilmiş ve doğrulanmış BIST sembolleri
         self.symbols = [
-            'AKBNK.IS', 'GARAN.IS', 'ISCTR.IS', 'YKBNK.IS', 'HALKB.IS',
-            'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS',
-            'THYAO.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS',
-            'ARCLK.IS', 'VESTL.IS', 'TOASO.IS', 'FROTO.IS',
+            # Bankalar
+            'AKBNK.IS', 'GARAN.IS', 'ISCTR.IS', 'YKBNK.IS', 'HALKB.IS', 'VAKBN.IS',
+            # Holdingler
+            'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'AGHOL.IS',
+            # Sanayi
+            'THYAO.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS', 'EREGL.IS',
+            'ARCLK.IS', 'VESTL.IS', 'TOASO.IS', 'FROTO.IS', 'SISE.IS',
+            # Telekomünikasyon
             'TTKOM.IS', 'TCELL.IS',
-            'SISE.IS', 'EREGL.IS', 'KRDMD.IS', 'SODA.IS', 'SASA.IS',
-            'BIMAS.IS', 'ENKAI.IS', 'TTRAK.IS', 'PGSUS.IS', 
-            'TAVHL.IS', 'KOZAL.IS',
+            # Enerji
+            'ENKA.IS', 'AKSEN.IS',
+            # Diğer
+            'KRDMD.IS', 'SODA.IS', 'SASA.IS', 'BIMAS.IS', 'ENKAI.IS',
+            'TTRAK.IS', 'PGSUS.IS', 'TAVHL.IS', 'KOZAL.IS', 'EKGYO.IS'
         ]
         
         self.results = []
         self.telegram = telegram_notifier
         self.failed = []
+        self.data_fetcher = AlternativeDataFetcher()
         
-    def get_stock_data(self, symbol):
-        """Yahoo Finance'tan veri çek"""
-        try:
-            time.sleep(0.5)
-            stock = yf.Ticker(symbol)
-            for period in ['3mo', '6mo', '1y']:
-                try:
-                    df = stock.history(period=period)
-                    if df is not None and len(df) >= 60:
-                        return df
-                    time.sleep(0.3)
-                except:
-                    continue
-            return None
-        except:
-            return None
+    def get_stock_data(self, symbol, max_retries=3):
+        """Geliştirilmiş veri çekme - retry mekanizması ile"""
+        for attempt in range(max_retries):
+            try:
+                # Ana yöntem: Yahoo Finance v8 API
+                df = self.data_fetcher.fetch_yahoo_alternative(symbol, period_days=120)
+                
+                if df is not None and len(df) >= 30:
+                    return df
+                
+                # Bekleme süresi - exponential backoff
+                wait_time = (2 ** attempt) + np.random.uniform(0, 1)
+                logger.warning(f"{symbol}: Attempt {attempt+1} failed, waiting {wait_time:.1f}s")
+                time.sleep(wait_time)
+                
+            except Exception as e:
+                logger.error(f"{symbol} error on attempt {attempt+1}: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)
+        
+        return None
     
     def calculate_rsi(self, df, period=14):
+        """RSI hesaplama"""
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-        rs = gain / loss
+        rs = gain / (loss + 1e-10)  # Division by zero önleme
         return 100 - (100 / (1 + rs))
     
     def calculate_macd(self, df):
+        """MACD hesaplama"""
         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
         macd = exp1 - exp2
         signal = macd.ewm(span=9, adjust=False).mean()
-        return macd, signal, macd - signal
+        histogram = macd - signal
+        return macd, signal, histogram
     
     def calculate_bollinger_bands(self, df, period=20, std_dev=2):
+        """Bollinger Bands"""
         sma = df['Close'].rolling(window=period).mean()
         std = df['Close'].rolling(window=period).std()
         upper_band = sma + (std * std_dev)
         lower_band = sma - (std * std_dev)
-        bandwidth = ((upper_band - lower_band) / sma) * 100
-        percent_b = (df['Close'] - lower_band) / (upper_band - lower_band)
+        bandwidth = ((upper_band - lower_band) / (sma + 1e-10)) * 100
+        percent_b = (df['Close'] - lower_band) / ((upper_band - lower_band) + 1e-10)
         return upper_band, lower_band, bandwidth, percent_b
     
-    def calculate_atr(self, df, period=14):
-        high_low = df['High'] - df['Low']
-        high_close = np.abs(df['High'] - df['Close'].shift())
-        low_close = np.abs(df['Low'] - df['Close'].shift())
-        ranges = pd.concat([high_low, high_close, low_close], axis=1)
-        true_range = np.max(ranges, axis=1)
-        return true_range.rolling(period).mean()
-    
     def calculate_stochastic(self, df, period=14, smooth_k=3, smooth_d=3):
+        """Stochastic Oscillator"""
         low_min = df['Low'].rolling(window=period).min()
         high_max = df['High'].rolling(window=period).max()
-        k_percent = 100 * ((df['Close'] - low_min) / (high_max - low_min))
+        k_percent = 100 * ((df['Close'] - low_min) / ((high_max - low_min) + 1e-10))
         k_percent = k_percent.rolling(window=smooth_k).mean()
         d_percent = k_percent.rolling(window=smooth_d).mean()
         return k_percent, d_percent
     
     def calculate_obv(self, df):
+        """On Balance Volume"""
         return (np.sign(df['Close'].diff()) * df['Volume']).fillna(0).cumsum()
     
     def calculate_vwap(self, df):
+        """Volume Weighted Average Price"""
         typical_price = (df['High'] + df['Low'] + df['Close']) / 3
-        return (typical_price * df['Volume']).cumsum() / df['Volume'].cumsum()
-    
-    def calculate_ichimoku(self, df):
-        nine_period_high = df['High'].rolling(window=9).max()
-        nine_period_low = df['Low'].rolling(window=9).min()
-        tenkan_sen = (nine_period_high + nine_period_low) / 2
-        
-        period26_high = df['High'].rolling(window=26).max()
-        period26_low = df['Low'].rolling(window=26).min()
-        kijun_sen = (period26_high + period26_low) / 2
-        
-        return tenkan_sen, kijun_sen
+        return (typical_price * df['Volume']).cumsum() / (df['Volume'].cumsum() + 1e-10)
     
     def analyze_stock(self, symbol):
+        """Hisse analizi - hata kontrolü geliştirilmiş"""
         df = self.get_stock_data(symbol)
         
-        if df is None or len(df) < 60:
+        if df is None or len(df) < 30:
+            logger.warning(f"{symbol}: Yetersiz veri")
             return None
         
         try:
-            current_price = df['Close'].iloc[-1]
-            prev_price = df['Close'].iloc[-2]
+            # Temel metrikler
+            current_price = float(df['Close'].iloc[-1])
+            prev_price = float(df['Close'].iloc[-2])
             price_change = ((current_price - prev_price) / prev_price) * 100
             
+            # Hacim analizi
             avg_volume_20 = df['Volume'].rolling(20).mean().iloc[-1]
             current_volume = df['Volume'].iloc[-1]
-            volume_ratio = current_volume / avg_volume_20 if avg_volume_20 > 0 else 0
+            volume_ratio = current_volume / avg_volume_20 if avg_volume_20 > 0 else 1.0
             
-            rsi = self.calculate_rsi(df).iloc[-1]
+            # Teknik göstergeler
+            rsi = float(self.calculate_rsi(df).iloc[-1])
             macd, signal, histogram = self.calculate_macd(df)
-            macd_value = macd.iloc[-1]
-            signal_value = signal.iloc[-1]
-            histogram_value = histogram.iloc[-1]
-            macd_cross = macd_value > signal_value
-            macd_bullish = histogram_value > 0 and histogram.iloc[-2] <= 0
+            macd_value = float(macd.iloc[-1])
+            signal_value = float(signal.iloc[-1])
+            histogram_value = float(histogram.iloc[-1])
             
+            # Hareketli ortalamalar
             ma20 = df['Close'].rolling(20).mean().iloc[-1]
-            ma50 = df['Close'].rolling(50).mean().iloc[-1]
+            ma50 = df['Close'].rolling(50).mean().iloc[-1] if len(df) >= 50 else ma20
             ma200 = df['Close'].rolling(min(len(df), 200)).mean().iloc[-1]
             
-            above_ma20 = current_price > ma20
-            above_ma50 = current_price > ma50
-            above_ma200 = current_price > ma200
-            golden_cross = ma20 > ma50 and ma50 > ma200
-            
+            # Bollinger Bands
             upper_bb, lower_bb, bb_bandwidth, bb_percent = self.calculate_bollinger_bands(df)
-            current_bb_bandwidth = bb_bandwidth.iloc[-1]
-            avg_bb_bandwidth = bb_bandwidth.rolling(50).mean().iloc[-1]
-            bb_squeeze = current_bb_bandwidth < avg_bb_bandwidth * 0.8
-            bb_percent_value = bb_percent.iloc[-1]
-            bb_near_lower = bb_percent_value < 0.2
-            bb_near_upper = bb_percent_value > 0.8
+            current_bb_bandwidth = float(bb_bandwidth.iloc[-1])
+            bb_percent_value = float(bb_percent.iloc[-1])
             
-            atr = self.calculate_atr(df).iloc[-1]
-            atr_percent = (atr / current_price) * 100
-            
+            # Stochastic
             stoch_k, stoch_d = self.calculate_stochastic(df)
-            stoch_k_value = stoch_k.iloc[-1]
-            stoch_d_value = stoch_d.iloc[-1]
-            stoch_oversold = stoch_k_value < 20
-            stoch_overbought = stoch_k_value > 80
-            stoch_bullish_cross = stoch_k_value > stoch_d_value and stoch_k.iloc[-2] <= stoch_d.iloc[-2]
+            stoch_k_value = float(stoch_k.iloc[-1])
+            stoch_d_value = float(stoch_d.iloc[-1])
             
+            # OBV ve VWAP
             obv = self.calculate_obv(df)
             obv_ma = obv.rolling(20).mean()
-            obv_rising = obv.iloc[-1] > obv_ma.iloc[-1]
+            vwap = float(self.calculate_vwap(df).iloc[-1])
             
-            vwap = self.calculate_vwap(df).iloc[-1]
-            above_vwap = current_price > vwap
-            
-            tenkan, kijun = self.calculate_ichimoku(df)
-            ichimoku_bullish = tenkan.iloc[-1] > kijun.iloc[-1]
-            
+            # 52 hafta high/low
             week52_high = df['Close'].rolling(min(len(df), 252)).max().iloc[-1]
             week52_low = df['Close'].rolling(min(len(df), 252)).min().iloc[-1]
             distance_from_low = ((current_price - week52_low) / week52_low) * 100
-            distance_from_high = ((week52_high - current_price) / week52_high) * 100
             
+            # Skorlama sistemi
             score = 0
             reasons = []
             risk_level = "Orta"
             
-            if volume_ratio > 3:
+            # Hacim skoru
+            if volume_ratio > 2.5:
                 score += 20
                 reasons.append(f"💥 Hacim patlaması: {volume_ratio:.1f}x")
-            elif volume_ratio > 2:
-                score += 15
-                reasons.append(f"📊 Yüksek hacim: {volume_ratio:.1f}x")
             elif volume_ratio > 1.5:
-                score += 10
-                reasons.append(f"📈 Artmış hacim: {volume_ratio:.1f}x")
+                score += 12
+                reasons.append(f"📊 Artmış hacim: {volume_ratio:.1f}x")
             
+            # RSI skoru
             if 40 < rsi < 60:
                 score += 15
                 reasons.append(f"✅ İdeal RSI: {rsi:.0f}")
             elif 30 < rsi < 70:
-                score += 10
-                reasons.append(f"⚡ İyi RSI: {rsi:.0f}")
+                score += 8
             elif rsi < 30:
-                reasons.append(f"⚠️ Aşırı satım: RSI {rsi:.0f}")
-            elif rsi > 70:
+                score += 5
+                reasons.append(f"🔽 Aşırı satım: RSI {rsi:.0f}")
+            elif rsi > 75:
+                risk_level = "Yüksek"
                 reasons.append(f"⚠️ Aşırı alım: RSI {rsi:.0f}")
-                risk_level = "Yüksek"
             
-            if macd_bullish:
+            # MACD skoru
+            if histogram_value > 0 and histogram.iloc[-2] <= 0:
                 score += 15
-                reasons.append("🚀 MACD yeni AL sinyali!")
-            elif macd_cross:
-                score += 10
-                reasons.append("📈 MACD pozitif")
-            
-            if golden_cross:
-                score += 20
-                reasons.append("⭐ Golden Cross!")
-            elif above_ma20 and above_ma50 and above_ma200:
-                score += 18
-                reasons.append("📊 Tüm MA'ların üzerinde")
-            elif above_ma20 and above_ma50:
-                score += 15
-                reasons.append("📊 MA20+50 üzerinde")
-            elif above_ma20:
+                reasons.append("🚀 MACD AL sinyali!")
+            elif macd_value > signal_value:
                 score += 8
-                reasons.append("📈 MA20 üzerinde")
             
-            if bb_squeeze and bb_near_lower:
+            # MA skoru
+            if current_price > ma20 and ma20 > ma50:
                 score += 15
-                reasons.append("🎯 BB Squeeze + Alt bant (PATLAMA POTANSİYELİ!)")
-            elif bb_squeeze:
-                score += 10
-                reasons.append("🔸 Bollinger daralması")
-            elif bb_near_lower and not stoch_overbought:
+                reasons.append("📊 Trend güçlü")
+            elif current_price > ma20:
                 score += 8
+            
+            # Bollinger skoru
+            if bb_percent_value < 0.2:
+                score += 10
                 reasons.append("📍 Alt banda yakın")
-            elif bb_near_upper:
-                risk_level = "Yüksek"
-                reasons.append("⚠️ Üst banda yakın")
             
-            if stoch_bullish_cross and stoch_k_value < 50:
-                score += 10
-                reasons.append(f"💫 Stoch AL: {stoch_k_value:.0f}")
-            elif stoch_oversold:
-                score += 5
-                reasons.append(f"🔽 Aşırı satım: Stoch {stoch_k_value:.0f}")
-            
-            if obv_rising and above_vwap:
-                score += 10
-                reasons.append("💪 OBV yükseliyor + VWAP üzeri")
-            elif obv_rising:
-                score += 5
-                reasons.append("📈 OBV yükseliyor")
-            elif above_vwap:
-                score += 5
-                reasons.append("✅ VWAP üzerinde")
-            
-            if ichimoku_bullish:
-                score += 5
-                reasons.append("🎌 Ichimoku bullish")
-            
-            if distance_from_low > 40 and distance_from_high > 30:
-                score += 10
-                reasons.append(f"📊 Dengeli pozisyon (52W: +{distance_from_low:.0f}%)")
-            elif distance_from_low > 30:
+            # Stochastic skoru
+            if stoch_k_value < 30:
                 score += 8
-                reasons.append(f"📍 52W düşükten +{distance_from_low:.0f}%")
-            elif distance_from_low < 10:
-                score += 5
-                reasons.append(f"🔽 52W düşüğe yakın (+{distance_from_low:.0f}%)")
+                reasons.append(f"🔽 Stoch oversold: {stoch_k_value:.0f}")
             
-            if price_change > 3:
-                score += 10
-                reasons.append(f"💹 Güçlü artış: +{price_change:.1f}%")
-            elif price_change > 1:
-                score += 5
-                reasons.append(f"📈 Artış: +{price_change:.1f}%")
-            elif price_change < -3:
-                risk_level = "Yüksek"
-            
-            if score >= 80:
+            # Risk seviyesi belirleme
+            if score >= 75:
                 risk_level = "Düşük"
-            elif score >= 60:
-                risk_level = "Orta"
-            elif rsi > 75 or stoch_overbought or bb_near_upper:
+            elif rsi > 75 or bb_percent_value > 0.85:
                 risk_level = "Yüksek"
-            
-            stop_loss_price = current_price - (atr * 2)
-            stop_loss_percent = ((current_price - stop_loss_price) / current_price) * 100
             
             return {
                 'symbol': symbol.replace('.IS', ''),
@@ -322,38 +359,28 @@ class BISTScanner:
                 'change_%': price_change,
                 'volume_ratio': volume_ratio,
                 'rsi': rsi,
-                'macd_signal': 'AL' if macd_cross else 'BEKLE',
-                'stoch_k': stoch_k_value,
-                'bb_squeeze': bb_squeeze,
-                'obv_rising': obv_rising,
-                'above_vwap': above_vwap,
-                'ichimoku_bullish': ichimoku_bullish,
-                'above_ma20': above_ma20,
-                'above_ma50': above_ma50,
-                'above_ma200': above_ma200,
-                'distance_from_low_%': distance_from_low,
-                'atr_%': atr_percent,
-                'stop_loss': stop_loss_price,
-                'stop_loss_%': stop_loss_percent,
+                'macd_signal': 'AL' if macd_value > signal_value else 'BEKLE',
                 'score': score,
                 'risk_level': risk_level,
                 'reasons': reasons
             }
-        except:
+            
+        except Exception as e:
+            logger.error(f"{symbol} analysis error: {e}")
             return None
     
     def scan_all(self):
+        """Tüm hisseleri tara"""
         print("="*70)
-        print("🔍 BIST PROFESYONEL TARAMA")
+        print("🔍 BIST PROFESYONEL TARAMA (GitHub Optimized)")
         print("="*70)
         print(f"📊 Taranacak: {len(self.symbols)}\n")
         
         if self.telegram:
             self.telegram.send_message(
-                f"🔍 *BIST PRO TARAMA*\n\n"
+                f"🔍 *BIST TARAMA BAŞLADI*\n\n"
                 f"📊 {len(self.symbols)} hisse\n"
-                f"⏰ {datetime.now().strftime('%H:%M')}\n"
-                f"🎯 30+ teknik gösterge"
+                f"⏰ {datetime.now().strftime('%H:%M')}"
             )
         
         for i, symbol in enumerate(self.symbols):
@@ -363,170 +390,66 @@ class BISTScanner:
             
             if result:
                 self.results.append(result)
-                emoji = "🔥" if result['score'] >= 80 else "⭐" if result['score'] >= 60 else "✨"
-                print(f"{emoji} Skor: {result['score']:.0f} | Risk: {result['risk_level']}")
+                emoji = "🔥" if result['score'] >= 75 else "⭐" if result['score'] >= 50 else "✨"
+                print(f"{emoji} Skor: {result['score']:.0f}")
             else:
                 self.failed.append(symbol)
                 print(f"❌")
             
-            if (i + 1) % 3 == 0:
-                time.sleep(2)
-            else:
-                time.sleep(0.8)
+            # Rate limiting - GitHub Actions için önemli
+            time.sleep(1.5)
         
         if len(self.results) == 0:
-            self.df = pd.DataFrame()
-            return self.df
+            logger.error("Hiç veri alınamadı!")
+            return pd.DataFrame()
         
         self.df = pd.DataFrame(self.results)
         self.df = self.df.sort_values('score', ascending=False)
         
         print(f"\n{'='*70}")
         print(f"✅ BAŞARILI: {len(self.results)} | ❌ BAŞARISIZ: {len(self.failed)}")
-        
-        risk_counts = self.df['risk_level'].value_counts()
-        print(f"\n📊 RİSK DAĞILIMI:")
-        for risk, count in risk_counts.items():
-            print(f"   {risk}: {count} hisse")
-        
         print(f"{'='*70}\n")
         
         return self.df
     
     def send_report(self, top_n=10, min_score=40):
+        """Telegram raporu gönder"""
         if not self.telegram or len(self.df) == 0:
             return
         
         top = self.df[self.df['score'] >= min_score].head(top_n)
         
         if len(top) == 0:
-            msg = f"⚠️ {min_score}+ skor yok\nEn yüksek: {self.df['score'].max():.0f}"
-            self.telegram.send_message(msg)
+            self.telegram.send_message(f"⚠️ {min_score}+ skor yok")
             return
         
-        summary = f"✅ *PRO TARAMA TAMAM*\n\n"
-        summary += f"📊 Başarılı: {len(self.df)} | Top: {len(top)}\n"
-        
-        low_risk = len(self.df[self.df['risk_level'] == 'Düşük'])
-        medium_risk = len(self.df[self.df['risk_level'] == 'Orta'])
-        high_risk = len(self.df[self.df['risk_level'] == 'Yüksek'])
-        summary += f"🟢 Düşük Risk: {low_risk} | 🟡 Orta: {medium_risk} | 🔴 Yüksek: {high_risk}\n"
-        summary += f"━━━━━━━━━━━━━━\n\n"
+        summary = f"✅ *TARAMA TAMAM*\n\n📊 Top {len(top)}:\n\n"
         
         for _, row in top.iterrows():
-            emoji = "🔥" if row['score'] >= 80 else "⭐" if row['score'] >= 60 else "✨"
-            risk_emoji = "🟢" if row['risk_level'] == 'Düşük' else "🟡" if row['risk_level'] == 'Orta' else "🔴"
-            
-            summary += f"{emoji} *{row['symbol']}* - {row['score']:.0f}/100 {risk_emoji}\n"
+            emoji = "🔥" if row['score'] >= 75 else "⭐"
+            summary += f"{emoji} *{row['symbol']}* - {row['score']:.0f}/100\n"
             summary += f"   💰 {row['price']:.2f} TL ({row['change_%']:+.1f}%)\n"
-            summary += f"   📊 Hacim: {row['volume_ratio']:.1f}x | RSI: {row['rsi']:.0f}\n"
-            summary += f"   🛑 Stop: {row['stop_loss']:.2f} TL (-{row['stop_loss_%']:.1f}%)\n\n"
+            summary += f"   📊 Hacim: {row['volume_ratio']:.1f}x | RSI: {row['rsi']:.0f}\n\n"
         
         self.telegram.send_message(summary)
-        
-        for _, row in top.head(3).iterrows():
-            risk_emoji = "🟢" if row['risk_level'] == 'Düşük' else "🟡" if row['risk_level'] == 'Orta' else "🔴"
-            
-            detail = f"📋 *{row['symbol']}* - {row['score']:.0f}/100\n"
-            detail += f"━━━━━━━━━━━━━━\n"
-            detail += f"{risk_emoji} Risk: *{row['risk_level']}*\n\n"
-            detail += f"💰 Fiyat: {row['price']:.2f} TL ({row['change_%']:+.2f}%)\n"
-            detail += f"📊 Hacim: {row['volume_ratio']:.1f}x\n"
-            detail += f"⚡ RSI: {row['rsi']:.0f}\n"
-            detail += f"🎯 MACD: {row['macd_signal']}\n"
-            detail += f"📉 Stoch: {row['stoch_k']:.0f}\n"
-            detail += f"🎌 Ichimoku: {'✅' if row['ichimoku_bullish'] else '❌'}\n"
-            detail += f"💹 VWAP: {'Üzeri ✅' if row['above_vwap'] else 'Altı ❌'}\n"
-            detail += f"🔸 BB Squeeze: {'Evet ⚡' if row['bb_squeeze'] else 'Hayır'}\n\n"
-            detail += f"🛑 *Stop Loss:* {row['stop_loss']:.2f} TL (-{row['stop_loss_%']:.1f}%)\n"
-            detail += f"📍 52W Düşükten: +{row['distance_from_low_%']:.0f}%\n\n"
-            detail += f"*Güçlü Yönler:*\n"
-            for r in row['reasons'][:7]:
-                detail += f"• {r}\n"
-            
-            self.telegram.send_message(detail)
-    
-    def create_chart(self):
-        if len(self.df) == 0 or not self.telegram:
-            return
-        
-        try:
-            fig = plt.figure(figsize=(16, 12))
-            gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
-            fig.suptitle('BIST Profesyonel Tarama Analizi', fontsize=18, fontweight='bold')
-            
-            ax1 = fig.add_subplot(gs[0, :2])
-            top = self.df.head(10)
-            colors = ['#2ecc71' if s >= 80 else '#f39c12' if s >= 60 else '#e74c3c' for s in top['score']]
-            ax1.barh(top['symbol'], top['score'], color=colors)
-            ax1.set_title('Top 10 Skor', fontweight='bold')
-            ax1.set_xlabel('Skor')
-            ax1.invert_yaxis()
-            ax1.grid(alpha=0.3)
-            
-            ax2 = fig.add_subplot(gs[0, 2])
-            risk_counts = self.df['risk_level'].value_counts()
-            colors_risk = ['#2ecc71', '#f39c12', '#e74c3c']
-            ax2.pie(risk_counts.values, labels=risk_counts.index, autopct='%1.0f%%',
-                   colors=colors_risk, startangle=90)
-            ax2.set_title('Risk Dağılımı', fontweight='bold')
-            
-            ax3 = fig.add_subplot(gs[1, 0])
-            ax3.scatter(self.df['rsi'], self.df['score'], s=100, alpha=0.6,
-                       c=self.df['score'], cmap='RdYlGn')
-            ax3.axvline(30, color='r', linestyle='--', alpha=0.5)
-            ax3.axvline(70, color='r', linestyle='--', alpha=0.5)
-            ax3.set_xlabel('RSI')
-            ax3.set_ylabel('Skor')
-            ax3.set_title('RSI vs Skor', fontweight='bold')
-            ax3.grid(alpha=0.3)
-            
-            ax4 = fig.add_subplot(gs[1, 1])
-            scatter = ax4.scatter(self.df['volume_ratio'], self.df['score'], 
-                                 s=100, c=self.df['change_%'], cmap='RdYlGn', alpha=0.6)
-            ax4.set_xlabel('Hacim Oranı')
-            ax4.set_ylabel('Skor')
-            ax4.set_title('Hacim vs Skor', fontweight='bold')
-            ax4.grid(alpha=0.3)
-            plt.colorbar(scatter, ax=ax4, label='Değişim %')
-            
-            ax5 = fig.add_subplot(gs[1, 2])
-            ax5.scatter(self.df['stoch_k'], self.df['score'], s=100, alpha=0.6)
-            ax5.axvline(20, color='g', linestyle='--', alpha=0.5)
-            ax5.axvline(80, color='r', linestyle='--', alpha=0.5)
-            ax5.set_xlabel('Stochastic K')
-            ax5.set_ylabel('Skor')
-            ax5.set_title('Stochastic vs Skor', fontweight='bold')
-            ax5.grid(alpha=0.3)
-            
-            ax6 = fig.add_subplot(gs[2, :])
-            ax6.hist(self.df['score'], bins=15, color='#3498db', edgecolor='black', alpha=0.7)
-            ax6.set_xlabel('Skor')
-            ax6.set_ylabel('Hisse Sayısı')
-            ax6.set_title('Skor Dağılımı', fontweight='bold')
-            ax6.grid(axis='y', alpha=0.3)
-            
-            plt.tight_layout()
-            
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=120, bbox_inches='tight')
-            buf.seek(0)
-            
-            self.telegram.send_photo(buf, f"📊 {datetime.now().strftime('%d.%m %H:%M')}")
-            plt.close()
-            buf.close()
-        except:
-            pass
 
 
 def main():
+    """Ana fonksiyon"""
     print("\n" + "="*70)
-    print("BIST HİSSE TARAMA - PROFESYONEL VERSİYON")
+    print("BIST HİSSE TARAMA - GitHub Actions Optimized")
     print("="*70 + "\n")
     
-    telegram = TelegramNotifier(BOT_TOKEN, CHAT_ID)
-    scanner = BISTScanner(telegram_notifier=telegram)
+    # Telegram kontrolü
+    if not BOT_TOKEN or not CHAT_ID:
+        logger.warning("⚠️  Telegram credentials not found - continuing without notifications")
+        telegram = None
+    else:
+        telegram = TelegramNotifier(BOT_TOKEN, CHAT_ID)
+        logger.info("✅ Telegram connected")
     
+    # Tarama başlat
+    scanner = BISTScanner(telegram_notifier=telegram)
     scanner.scan_all()
     
     if len(scanner.df) > 0:
@@ -534,15 +457,20 @@ def main():
         print("-"*70)
         print(scanner.df.head(10)[['symbol', 'price', 'change_%', 'rsi', 'score']].to_string(index=False))
         
-        scanner.send_report(top_n=15, min_score=30)
-        scanner.create_chart()
+        # CSV kaydet
+        scanner.df.to_csv('bist_scan_results.csv', index=False)
+        logger.info("📁 Results saved to bist_scan_results.csv")
         
-        telegram.send_message("✅ *TARAMA TAMAMLANDI!*")
+        scanner.send_report(top_n=10, min_score=35)
+        
+        if telegram:
+            telegram.send_message("✅ *TARAMA TAMAMLANDI!*")
     else:
-        print("\n❌ Tarama başarısız!")
-        telegram.send_message("❌ Veri çekilemedi")
+        logger.error("❌ Tarama başarısız - veri alınamadı!")
+        if telegram:
+            telegram.send_message("❌ Veri çekilemedi - tüm denemeler başarısız")
     
-    print("\n✅ Tamamlandı!")
+    print("\n✅ İşlem tamamlandı!")
 
 
 if __name__ == "__main__":
