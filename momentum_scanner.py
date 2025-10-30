@@ -1,4 +1,76 @@
-"""
+def scan_all(self, max_workers=8):
+        """Paralel tarama"""
+        print("="*70)
+        print("🎯 MOMENTUM AVCISI - BIST TARAMASI")
+        print("="*70)
+        print(f"📊 Hisse: {len(self.symbols)} | 🚀 {max_workers} paralel\n")
+        
+        if self.telegram:
+            self.telegram.send_message(
+                f"🎯 *MOMENTUM AVCISI*\n\n"
+                f"📊 {len(self.symbols)} hisse taranıyor\n"
+                f"⏰ {datetime.now().strftime('%H:%M')}\n"
+                f"🎲 Hacim + RSI + MACD + BB Squeeze"
+            )
+        
+        start = time.time()
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_symbol = {executor.submit(self.analyze_stock, s): s 
+                              for s in self.symbols}
+            
+            done = 0
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                done += 1
+                
+                try:
+                    result = future.result()
+                    if result:
+                        self.results.append(result)
+                        emoji = result['signal_type'].split()[0]
+                        print(f"[{done}/{len(self.symbols)}] {symbol:12} {emoji} {result['score']:.0f}")
+                    else:
+                        self.failed.append(symbol)
+                        print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
+                except Exception as e:
+                    self.failed.append(symbol)
+                    print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
+        
+        elapsed = time.time() - start
+        
+        if len(self.results) == 0:
+            return pd.DataFrame()
+        
+        self.df = pd.DataFrame(self.results)
+        self.df = self.df.sort_values('score', ascending=False)
+        
+        print(f"\n{'='*70}")
+        print(f"✅ Başarılı: {len(self.results)} | ❌ Başarısız: {len(self.failed)}")
+        print(f"⏱️  Süre: {elapsed:.1f}s")
+        print(f"{'='*70}\n")
+        
+        return self.df
+    
+    def print_beautiful_table(self, top_n=10):
+        """Güzel formatlanmış tablo yazdır"""
+        if len(self.df) == 0:
+            return
+        
+        top = self.df.head(top_n)
+        
+        print("\n" + "="*100)
+        print("🎯 MOMENTUM AVCISI - EN İYİ FIRSATLAR")
+        print("="*100)
+        print(f"{'HİSSE':<8} {'FİYAT':>8} {'HACİM':>7} {'RSI':>5} {'MACD':>8} {'BB':>8} {'STOCH':>7} {'SKOR':>5}  {'DURUM':<15}")
+        print("-"*100)
+        
+        for _, row in top.iterrows():
+            symbol = row['symbol']
+            price = row['price']
+            volume = f"{row['volume_ratio']:.1f}x"
+            rsi = f"{row['rsi']:.0f}"
+            macd = "AL" if row['macd_cross'] else row['macd_signal'][:"""
 BIST MOMENTUM AVCISI - Strateji 1
 Odak: Hacim + RSI + MACD + Bollinger Squeeze
 Basit, etkili, net sinyaller!
@@ -144,93 +216,14 @@ class MomentumScanner:
     
     def __init__(self, telegram_notifier=None):
         self.symbols = [
-            'JANTs.IS', 'KAPLM.IS', 'KAREL.IS', 'KARSN.IS', 'KARTN.IS', 'KATMR.IS',
-    'KAYSE.IS', 'KBORU.IS', 'KCAER.IS', 'KCHOL.IS', 'KENT.IS', 'KERVN.IS',
-    'KFEIN.IS', 'KIMMR.IS', 'KLKIM.IS', 'KLMSN.IS', 'KLNMA.IS', 'KLRHO.IS',
-    'KLSER.IS', 'KLSYN.IS', 'KLYPv.IS', 'KMPUR.IS', 'KNFRT.IS', 'KOCMT.IS',
-    'KONKA.IS', 'KONTR.IS', 'KONYA.IS', 'KOPOL.IS', 'KORDS.IS', 'KOTON.IS',
-    'KOZAA.IS', 'KOZAL.IS', 'KRDMA.IS', 'KRONT.IS', 'KRPLS.IS', 'KRSTL.IS',
-    'KRTEK.IS', 'KRVGD.IS', 'KSTUR.IS', 'KTLEV.IS', 'KUTPO.IS', 'KUVVA.IS',
-    'KZBGY.IS', 'KZGYO.IS', 'LIDER.IS', 'LIDFA.IS', 'LILAK.IS', 'LINK.IS',
-    'LKMNH.IS', 'Lmkdc.IS', 'LOGO.IS', 'LRSHO.IS', 'LUKSK.IS', 'LYDHO.IS',
-    'LYDYE.IS', 'MAALT.IS', 'MACKO.IS', 'MAGEN.IS', 'MAKIM.IS', 'MAKTK.IS',
-    'MANAS.IS', 'MARBL.IS', 'MARKA.IS', 'MARMr.IS', 'MARTI.IS', 'MNDTR.IS',
-    'MOBTL.IS', 'MOGAN.IS', 'MOPAS.IS', 'MPARK.IS', 'MRSHL.IS', 'MTRKS.IS',
-    'MTRYO.IS', 'MZHLD.IS', 'NATEN.IS', 'NETAS.IS', 'NIBAS.IS', 'NTGAZ.IS',
-    'NTHOL.IS', 'NUHCM.IS', 'OBAMS.IS', 'OBASE.IS', 'ODAS.IS', 'ODINE.IS',
-    'OFSYM.IS', 'ONCSM.IS', 'ONRYT.IS', 'ORCAY.IS', 'ORGE.IS', 'ORMA.IS',
-    'OSMEN.IS', 'OSTIM.IS', 'OTKAR.IS', 'OTTO.IS', 'OYAKC.IS', 'OYAYO.IS',
-    'OYLUM.IS', 'OYYAT.IS', 'OZATD.IS', 'OZrdn.IS', 'OZSUB.IS', 'OZGYO.IS',
-    'PAGYO.IS', 'PAmEL.IS', 'PAPIL.IS', 'PARSN.IS', 'PASEU.IS', 'PATEK.IS',
-    'PCILT.IS', 'PEKGY.IS', 'PENGD.IS', 'PENTA.IS', 'PETKM.IS', 'PETUN.IS',
-    'PGSUS.IS', 'PINSU.IS', 'PKART.IS', 'PKENT.IS', 'PLTUR.IS',
-    'PNLSN.IS', 'PNSUT.IS', 'POLHO.IS', 'POLTK.IS', 'PRdGS.IS', 'PRKAB.IS',
-    'PRKME.IS', 'PRZMA.IS', 'PSDTc.IS', 'QNBtr.IS', 'QNBfk.IS', 'QUAGR.IS', 'RALYH.IS',
-    'RAYsG.IS', 'REEDR.IS', 'ROYAl.IS', 'RNPOL.IS', 'RODRg.IS', 'RTALB.IS',
-    'RUBNS.IS', 'RUZYE.IS', 'RYSAS.IS', 'SAFKR.IS', 'SAHOL.IS', 'SAMAT.IS',
-    'SANEL.IS', 'SANFM.IS', 'SANKO.IS', 'SARKY.IS', 'SASA.IS', 'SAYAS.IS',
-    'SDTTR.IS', 'SEGMn.IS', 'SEGYO.IS', 'SEKfk.IS', 'SEKUR.IS', 'SELEC.IS',
-    'SELVA.IS', 'SERNT.IS', 'SEYKM.IS', 'SILVR.IS', 'SISE.IS', 'SKBNK.IS', 
-    'SKTAS.IS', 'SKYLP.IS', 'SKYMD.IS', 'SMART.IS', 'SMRTG.IS', 'SMRVA.IS',
-    'SNICA.IS', 'SNKRN.IS', 'SNPAM.IS', 'SODSN.IS', 'SOKE.IS', 'SOKM.IS',
-    'SONME.IS', 'SRVGY.IS', 'SUMAS.IS', 'SUNTK.IS', 'SURGY.IS', 'SUWEN.IS',
-    'TABGD.IS', 'TARKM.IS', 'TATEN.IS', 'TATGD.IS', 'TAVHL.IS', 'TBORG.IS',
-    'TCELL.IS', 'Tckrc.IS', 'TDGYO.IS', 'TEKTU.IS', 'TERA.IS', 'TEZOL.IS',
-    'TGSAS.IS', 'THYAO.IS', 'TKFEN.IS', 'TKNsa.IS', 'TLMAN.IS', 'TMPOL.IS',
-    'TMSN.IS', 'TNZTP.IS', 'TOASO.IS', 'TRCAS.IS', 'TRGYO.IS', 'TRILC.IS',
-    'TSKB.IS', 'TSPOR.IS', 'TTKOM.IS', 'TTRaK.IS', 'TUCLk.IS', 'TUKAS.IS',
-    'TUPRS.IS', 'TUREX.IS', 'TURG.IS', 'TURSG.IS', 'UFUK.IS', 'ULAS.IS',
-    'ULKER.IS', 'ULUFA.IS', 'ULUSE.IS', 'ULUun.IS', 'UNLU.IS', 'USAK.IS',
-    'VAKBN.IS', 'VAKFN.IS', 'VAKKO.IS', 'VANGD.IS', 'VBTYZ.IS', 'VERUS.IS',
-    'VESBE.IS', 'VESTL.IS', 'VKFYO.IS', 'VKING.IS', 'VRGYO.IS', 'VSNMD.IS',
-    'YAPRK.IS', 'YATAS.IS', 'YAYLA.IS', 'YBTAS.IS', 'YEOTK.IS', 'YESIL.IS',
-    'YGGYO.IS', 'YIGIT.IS', 'YKBNK.IS', 'YKSLN.IS', 'YONGA.IS', 'YUNSA.IS',
-    'YYAPI.IS', 'YYLGD.IS', 'ZEDUR.IS', 'ZOREN.IS', 'ZRGYO.IS', 'A1CAP.IS',
-    'A1YEN.IS', 'ACSEL.IS', 'ADEL.IS', 'ADESE.IS', 'ADGYO.IS', 'AEFES.IS',
-    'AFYON.IS', 'AGESA.IS', 'AGHOL.IS', 'AGROT.IS', 'AHSGY.IS', 'AKBNK.IS',
-    'AKCNS.IS', 'AKENR.IS', 'AKFIS.IS', 'AKFYE.IS', 'AKGRT.IS', 'AKSA.IS',
-    'AKSEN.IS', 'AKSUE.IS', 'AKYHO.IS', 'ALARK.IS', 'ALBRK.IS', 'ALCAR.IS',
-    'ALCTL.IS', 'ALFAS.IS', 'ALKA.IS', 'ALKIM.IS', 'ALKLC.IS',
-    'ALTNY.IS', 'ALVES.IS', 'ANELE.IS', 'ANGEN.IS', 'ANHYT.IS', 'ANSGR.IS',
-    'ARASE.IS', 'ARCLK.IS', 'ARDYZ.IS', 'ARENA.IS', 'ARMGD.IS', 'ARSAN.IS',
-    'ARTMS.IS', 'ARZUM.IS', 'ASELS.IS', 'ASTOR.IS', 'ASUZU.IS', 'ATATP.IS',
-    'ATEKS.IS', 'ATLAS.IS', 'ATSYH.IS', 'AVGYO.IS', 'AVHOL.IS', 'AVOD.IS',
-    'AVPGY.IS', 'AYCES.IS', 'AYDEM.IS', 'AYEN.IS', 'AYES.IS', 'AYGAZ.IS',
-    'AZTEK.IS', 'BAGFS.IS', 'BAHKM.IS', 'BAKAB.IS', 'BALAT.IS', 'BALSU.IS',
-    'BANVT.IS', 'BARMA.IS', 'BASCM.IS', 'BASGZ.IS', 'BAYRK.IS', 'BEGYO.IS',
-    'BERA.IS', 'BESLR.IS', 'BEYAZ.IS', 'BFREN.IS', 'BIENY.IS', 'BIGCH.IS', 
-    'BIOEN.IS', 'BIZIM.IS', 'BJKAS.IS', 'BLCYT.IS', 'BLUME.IS', 'BMSCH.IS',
-    'BMSTL.IS', 'BNTAS.IS', 'BObet.IS', 'BORLS.IS', 'BORSK.IS', 'BOSSA.IS',
-    'BRISA.IS', 'BRKO.IS', 'BRKSN.IS', 'BRKVY.IS', 'BRLSM.IS', 'BRMEN.IS',
-    'BRSAN.IS', 'BRYAT.IS', 'BSOKE.IS', 'BTCIM.IS', 'BULGs.IS', 'BURCE.IS',
-    'BURVA.IS', 'BVSAN.IS', 'BYDNR.IS', 'CANTE.IS', 'CASA.IS', 'CATES.IS',
-    'CCOLA.IS', 'CELHA.IS', 'CEMAS.IS', 'CEMTS.IS', 'CEMZY.IS', 'CEDEM.IS',
-    'Cmbtn.IS', 'CIMSA.IS', 'CLEBI.IS', 'CMBTN.IS', 'CMEnT.IS', 'CONSE.IS',
-    'COSMO.IS', 'CRDFA.IS', 'CRFSA.IS', 'CUSAN.IS', 'CVKmD.IS', 'CWENE.IS',
-    'DAGI.IS', 'DAPGM.IS', 'DARDL.IS', 'DCTTr.IS', 'DENGE.IS', 'DERHL.IS',
-    'DERIM.IS', 'DESA.IS', 'DESPC.IS', 'DEVA.IS', 'DGATE.IS', 'DGNMO.IS',
-    'DIRIT.IS', 'DITAS.IS', 'DMRgd.IS', 'DMSAS.IS', 'DNISI.IS', # DİRİT -> DIRIT
-    'DOAS.IS', 'DOBUR.IS', 'DOFER.IS', 'DOFRB.IS', 'DOGUB.IS', 'DOHOL.IS',
-    'DOKTA.IS', 'DSTKF.IS', 'DUNYH.IS', 'DURDO.IS', 'DURkn.IS', 'DYOBY.IS',
-    'DZgYO.IS', 'EBEBK.IS', 'ECILC.IS', 'ECZYT.IS', 'EDATA.IS', 'EDIP.IS',
-    'EFORc.IS', 'EGEEN.IS', 'EGEGY.IS', 'EGEPO.IS', 'EGgUb.IS', 'EGPRO.IS',
-    'EGSER.IS', 'EKIZ.IS', 'EKOS.IS', 'EKSUN.IS', 'ELITE.IS', 'EMKEL.IS',
-    'EMNIS.IS', 'ENDAe.IS', 'ENERY.IS', 'ENJSA.IS', 'ENKAI.IS', 'ENSRI.IS',
-    'ENTRA.IS', 'EPLAS.IS', 'ERBOS.IS', 'ERCb.IS', 'EREGL.IS', 'ERSU.IS',
-    'ESCAR.IS', 'ESCOM.IS', 'ESEN.IS', 'ETILR.IS', 'ETYAT.IS', 'EUHOL.IS', 
-    'EUKYO.IS', 'EUPWR.IS', 'EUREN.IS', 'EUYO.IS', 'FADE.IS', 'FENER.IS',
-    'FLAP.IS', 'FMIzp.IS', 'FONET.IS', 'FORMT.IS', 'FORTE.IS', 'FRIGO.IS', 
-     'MAALT.IS', 'MACKO.IS','MAGEN.IS','MAKIM.IS', 'MAKTK.IS', 'MANAS.IS', 'MARBL.IS',
-    'MARKA.IS', 'MARMR.IS',  'MARTI.IS', 'MAVI.IS', 'MEDTR.IS', 'MEGAP.IS', 'MEGMT.IS',
-    'MEKAG.IS', 'MEPET.IS', 'MERCN.IS', 'MERIT.IS', 'MERKO.IS', 'METRO.IS', 'MGROS.IS',
-    'MHRGY.IS', 'MIATK.IS', 'MMCAS.IS', 'MNDRS.IS', 'MNDTR.IS', 'MOBTL.IS', 'MOGAN.IS',
-    'MOPAS.IS', 'MPARK.IS', 'MRGYO.IS', 'MRSHL.IS', 'MSGYO.IS', 'MTRKS.IS', 'MTRYO.IS',
-    'MZHLD.IS','HEKTS.IS', 'HKTM.IS', 'HDFGS.IS', 'HRKET.IS', 'HTTBt.IS', 'HUBVC.IS', 'HUNER.IS',
-    'HURGZ.IS', 'ICBCT.IS', 'ICUGS.IS', 'IEYHO.IS', 'IHAAS.IS', 'IHEVA.IS',
-    'IHGZT.IS', 'IHLAS.IS', 'IHLGM.IS', 'IHYAY.IS', 'IMASM.IS', 'INDES.IS',
-    'INFO.IS', 'INGRM.IS', 'INTEK.IS', 'INTEM.IS', 'INVEO.IS', 'INVES.IS',
-    'IPEKE.IS', 'ISBIR.IS', 'ISDMR.IS', 'ISFIN.IS', 'ISKPL.IS', 'ISMEN.IS',
-    'ISSEN.IS', 'IZMDC.IS', 'IZenr.IS', 'IZFAS.IS', 'IZINV'
+            'AKBNK.IS', 'GARAN.IS', 'ISCTR.IS', 'YKBNK.IS', 'HALKB.IS', 'VAKBN.IS',
+            'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'AGHOL.IS',
+            'THYAO.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS', 'EREGL.IS',
+            'ARCLK.IS', 'VESTL.IS', 'TOASO.IS', 'FROTO.IS', 'SISE.IS',
+            'TTKOM.IS', 'TCELL.IS', 'ENKA.IS', 'AKSEN.IS',
+            'KRDMD.IS', 'SODA.IS', 'SASA.IS', 'BIMAS.IS', 'ENKAI.IS',
+            'TTRAK.IS', 'PGSUS.IS', 'TAVHL.IS', 'KOZAL.IS', 'EKGYO.IS',
+            'MGROS.IS', 'SOKM.IS', 'ULKER.IS', 'KONTR.IS', 'AEFES.IS'
         ]
         
         self.results = []
@@ -487,111 +480,109 @@ class MomentumScanner:
         
         return self.df
     
-    def send_report(self, top_n=10):
-        """Basitleştirilmiş rapor"""
+    def print_beautiful_table(self, top_n=15):
+        """Güzel formatlanmış tablo"""
+        if len(self.df) == 0:
+            return
+        
+        top = self.df.head(top_n)
+        
+        print("\n" + "="*110)
+        print("🎯 MOMENTUM AVCISI - EN İYİ FIRSATLAR")
+        print("="*110)
+        print(f"{'HİSSE':<8} {'FİYAT':>9} {'HACİM':>7} {'RSI':>5} {'MACD':>8} {'BB':>10} {'STOCH':>7} {'SKOR':>5}  {'DURUM':<15}")
+        print("-"*110)
+        
+        for _, row in top.iterrows():
+            symbol = row['symbol']
+            price = f"{row['price']:.2f}"
+            volume = f"{row['volume_ratio']:.1f}x"
+            rsi = f"{row['rsi']:.0f}"
+            
+            # MACD düzgün göster
+            if row['macd_cross']:
+                macd = "🚀AL"
+            elif row['macd_signal'] == 'Pozitif':
+                macd = "Poz"
+            else:
+                macd = "Neg"
+            
+            bb = "Squeeze⚡" if row['bb_squeeze'] else f"{row['bb_position']:.0f}%"
+            stoch = f"{row['stoch_k']:.0f}"
+            score = f"{row['score']:.0f}"
+            durum = row['signal_type']
+            
+            print(f"{symbol:<8} {price:>9} {volume:>7} {rsi:>5} {macd:>8} {bb:>10} {stoch:>7} {score:>5}  {durum:<15}")
+        
+        print("="*110 + "\n")
+    
+    def send_report(self, top_n=15):
+        """Sadece tablo - detay yok!"""
         if not self.telegram or len(self.df) == 0:
             return
         
-        # Sadece AL sinyali olanları göster
         buy_signals = self.df[self.df['score'] >= 60].head(top_n)
         
         if len(buy_signals) == 0:
             self.telegram.send_message("⚠️ Bugün güçlü sinyal yok")
             return
         
-        # Özet
-        summary = f"🎯 *MOMENTUM AVCISI RAPORU*\n\n"
-        summary += f"📊 {len(buy_signals)} güçlü sinyal bulundu!\n\n"
+        # Sadece özet tablo
+        msg = "🎯 *MOMENTUM AVCISI*\n\n"
+        msg += f"```\n"
+        msg += f"{'HİSSE':<7} {'FİYAT':>7} {'HCM':>5} {'RSI':>4} {'SKOR':>4}\n"
+        msg += f"{'-'*32}\n"
         
         for _, row in buy_signals.iterrows():
-            emoji = row['signal_type'].split()[0]
-            risk_emoji = "🟢" if row['risk_level'] == 'Düşük' else "🟡" if row['risk_level'] == 'Orta' else "🔴"
+            symbol = row['symbol'][:7]
+            price = f"{row['price']:.2f}"
+            volume = f"{row['volume_ratio']:.1f}x"
+            rsi = f"{row['rsi']:.0f}"
+            score = f"{row['score']:.0f}"
             
-            summary += f"{emoji} *{row['symbol']}* - {row['score']:.0f}/100 {risk_emoji}\n"
-            summary += f"   💰 {row['price']:.2f} TL ({row['change_%']:+.1f}%)\n"
-            summary += f"   📊 Hacim: {row['volume_ratio']:.1f}x | RSI: {row['rsi']:.0f}\n\n"
+            msg += f"{symbol:<7} {price:>7} {volume:>5} {rsi:>4} {score:>4}\n"
         
-        self.telegram.send_message(summary)
+        msg += "```\n"
+        msg += f"\n📊 {len(buy_signals)} fırsat bulundu!"
         
-        # Top 3 detay
-        for _, row in buy_signals.head(3).iterrows():
-            detail = f"📋 *{row['symbol']}* - {row['signal_type']}\n"
-            detail += f"━━━━━━━━━━━━━━\n"
-            detail += f"Skor: *{row['score']:.0f}/100* | Risk: {row['risk_level']}\n\n"
-            detail += f"💰 Fiyat: {row['price']:.2f} TL ({row['change_%']:+.2f}%)\n\n"
-            detail += f"*4 Temel Gösterge:*\n"
-            detail += f"📊 Hacim: {row['volume_ratio']:.1f}x\n"
-            detail += f"⚡ RSI: {row['rsi']:.0f}\n"
-            detail += f"🎯 MACD: {row['macd_signal']}"
-            if row['macd_cross']:
-                detail += " 🚀 YENİ AL!\n"
-            else:
-                detail += "\n"
-            
-            bb_text = 'Squeeze ⚡' if row['bb_squeeze'] else f"%{row['bb_position']:.0f}"
-            detail += f"🔸 BB: {bb_text}\n\n"
-            
-            detail += f"*Sinyaller:*\n"
-            for s in row['signals'][:5]:
-                detail += f"• {s}\n"
-            
-            self.telegram.send_message(detail)
+        self.telegram.send_message(msg)
     
     def create_chart(self):
-        """Basit gösterge grafikleri"""
+        """Basit grafik - sadece top 15"""
         if len(self.df) == 0 or not self.telegram:
             return
         
         try:
-            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-            fig.suptitle('🎯 Momentum Avcısı - 4 Temel Gösterge', fontsize=16, fontweight='bold')
+            fig, ax = plt.subplots(figsize=(14, 8))
             
-            top10 = self.df.head(10)
+            top15 = self.df.head(15)
             
-            # 1. Hacim analizi
-            ax1 = axes[0, 0]
-            colors = ['#e74c3c' if v < 1.5 else '#f39c12' if v < 2.5 else '#2ecc71' for v in top10['volume_ratio']]
-            ax1.barh(top10['symbol'], top10['volume_ratio'], color=colors)
-            ax1.axvline(2, color='orange', linestyle='--', alpha=0.5, label='2x eşik')
-            ax1.set_title('📊 Hacim Oranı (En Önemli!)', fontweight='bold')
-            ax1.set_xlabel('Hacim Çarpanı')
-            ax1.legend()
-            ax1.invert_yaxis()
+            # Renkler
+            colors = []
+            for _, row in top15.iterrows():
+                if '🔥' in row['signal_type']:
+                    colors.append('#e74c3c')  # Kırmızı - Güçlü AL
+                elif '✅' in row['signal_type']:
+                    colors.append('#f39c12')  # Turuncu - AL
+                else:
+                    colors.append('#95a5a6')  # Gri
             
-            # 2. RSI
-            ax2 = axes[0, 1]
-            ax2.scatter(top10['rsi'], top10['score'], s=150, alpha=0.6, c=top10['score'], cmap='RdYlGn')
-            ax2.axvline(30, color='g', linestyle='--', alpha=0.5)
-            ax2.axvline(70, color='r', linestyle='--', alpha=0.5)
-            ax2.axvspan(40, 60, alpha=0.1, color='green', label='İdeal bölge')
-            ax2.set_title('⚡ RSI Momentum', fontweight='bold')
-            ax2.set_xlabel('RSI')
-            ax2.set_ylabel('Skor')
-            ax2.legend()
+            # Bar chart
+            bars = ax.barh(top15['symbol'], top15['score'], color=colors)
             
-            # 3. Skor dağılımı
-            ax3 = axes[1, 0]
-            signal_colors = {'🔥 GÜÇLÜ AL': '#2ecc71', '✅ AL': '#3498db', '👀 İZLE': '#f39c12', '⏸️ BEKLE': '#95a5a6'}
-            for sig_type, color in signal_colors.items():
-                mask = top10['signal_type'] == sig_type
-                if mask.any():
-                    ax3.barh(top10[mask]['symbol'], top10[mask]['score'], color=color, label=sig_type)
-            ax3.set_title('🎯 Skor ve Sinyal Tipi', fontweight='bold')
-            ax3.set_xlabel('Skor')
-            ax3.legend()
-            ax3.invert_yaxis()
+            # Skorları barlara yaz
+            for i, (bar, row) in enumerate(zip(bars, top15.iterrows())):
+                _, r = row
+                width = bar.get_width()
+                ax.text(width + 1, bar.get_y() + bar.get_height()/2, 
+                       f"{r['score']:.0f} | RSI:{r['rsi']:.0f} | {r['volume_ratio']:.1f}x",
+                       va='center', fontsize=9)
             
-            # 4. Bollinger Position
-            ax4 = axes[1, 1]
-            squeeze_mask = top10['bb_squeeze']
-            colors = ['#e74c3c' if sq else '#95a5a6' for sq in squeeze_mask]
-            ax4.scatter(top10['bb_position'], top10['volume_ratio'], s=150, c=colors, alpha=0.6)
-            ax4.axvline(20, color='g', linestyle='--', alpha=0.5, label='Alt bölge')
-            ax4.axvline(80, color='r', linestyle='--', alpha=0.5, label='Üst bölge')
-            ax4.set_title('🔸 Bollinger Position vs Hacim', fontweight='bold')
-            ax4.set_xlabel('BB Position %')
-            ax4.set_ylabel('Hacim Oranı')
-            ax4.legend()
+            ax.set_xlabel('Skor', fontsize=12, fontweight='bold')
+            ax.set_title('🎯 MOMENTUM AVCISI - En İyi 15 Fırsat', fontsize=14, fontweight='bold')
+            ax.invert_yaxis()
+            ax.grid(axis='x', alpha=0.3)
+            ax.set_xlim(0, 100)
             
             plt.tight_layout()
             
@@ -608,7 +599,7 @@ class MomentumScanner:
 
 def main():
     print("\n" + "="*70)
-    print("🎯 MOMENTUM AVCISI - Basit & Etkili Strateji")
+    print("🎯 MOMENTUM AVCISI - Basit & Etkili")
     print("="*70 + "\n")
     
     telegram = None
@@ -622,14 +613,17 @@ def main():
     scanner.scan_all(max_workers=8)
     
     if len(scanner.df) > 0:
-        print("\n🔥 EN İYİ 10:")
-        print("-"*70)
-        print(scanner.df.head(10)[['symbol', 'signal_type', 'score', 'volume_ratio', 'rsi']].to_string(index=False))
+        # Güzel tablo yazdır
+        scanner.print_beautiful_table(top_n=15)
         
+        # CSV kaydet
         scanner.df.to_csv('momentum_scan.csv', index=False)
         logger.info("📁 Sonuçlar kaydedildi")
         
-        scanner.send_report(top_n=10)
+        # Telegram'a sadece tablo gönder
+        scanner.send_report(top_n=15)
+        
+        # Basit grafik gönder
         scanner.create_chart()
         
         if telegram:
