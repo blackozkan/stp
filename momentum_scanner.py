@@ -559,7 +559,7 @@ class MomentumScanner:
             ax2 = axes[0, 1]
             ax2.scatter(top10['rsi'], top10['score'], s=150, alpha=0.6, c=top10['score'], cmap='RdYlGn')
             ax2.axvline(30, color='g', linestyle='--', alpha=0.5)
-            ax2.axvline(70, color='r', linestyle='--', alpha=0.5')
+            ax2.axvline(70, color='r', linestyle='--', alpha=0.5)
             ax2.axvspan(40, 60, alpha=0.1, color='green', label='İdeal bölge')
             ax2.set_title('⚡ RSI Momentum', fontweight='bold')
             ax2.set_xlabel('RSI')
