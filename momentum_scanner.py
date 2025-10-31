@@ -1,85 +1,11 @@
-def scan_all(self, max_workers=8):
-        """Paralel tarama"""
-        print("="*70)
-        print("🎯 MOMENTUM AVCISI - BIST TARAMASI")
-        print("="*70)
-        print(f"📊 Hisse: {len(self.symbols)} | 🚀 {max_workers} paralel\n")
-        
-        if self.telegram:
-            self.telegram.send_message(
-                f"🎯 *MOMENTUM AVCISI*\n\n"
-                f"📊 {len(self.symbols)} hisse taranıyor\n"
-                f"⏰ {datetime.now().strftime('%H:%M')}\n"
-                f"🎲 Hacim + RSI + MACD + BB Squeeze"
-            )
-        
-        start = time.time()
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_symbol = {executor.submit(self.analyze_stock, s): s 
-                              for s in self.symbols}
-            
-            done = 0
-            for future in as_completed(future_to_symbol):
-                symbol = future_to_symbol[future]
-                done += 1
-                
-                try:
-                    result = future.result()
-                    if result:
-                        self.results.append(result)
-                        emoji = result['signal_type'].split()[0]
-                        print(f"[{done}/{len(self.symbols)}] {symbol:12} {emoji} {result['score']:.0f}")
-                    else:
-                        self.failed.append(symbol)
-                        print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
-                except Exception as e:
-                    self.failed.append(symbol)
-                    print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
-        
-        elapsed = time.time() - start
-        
-        if len(self.results) == 0:
-            return pd.DataFrame()
-        
-        self.df = pd.DataFrame(self.results)
-        self.df = self.df.sort_values('score', ascending=False)
-        
-        print(f"\n{'='*70}")
-        print(f"✅ Başarılı: {len(self.results)} | ❌ Başarısız: {len(self.failed)}")
-        print(f"⏱️  Süre: {elapsed:.1f}s")
-        print(f"{'='*70}\n")
-        
-        return self.df
-    
-    def print_beautiful_table(self, top_n=10):
-        """Güzel formatlanmış tablo yazdır"""
-        if len(self.df) == 0:
-            return
-        
-        top = self.df.head(top_n)
-        
-        print("\n" + "="*100)
-        print("🎯 MOMENTUM AVCISI - EN İYİ FIRSATLAR")
-        print("="*100)
-        print(f"{'HİSSE':<8} {'FİYAT':>8} {'HACİM':>7} {'RSI':>5} {'MACD':>8} {'BB':>8} {'STOCH':>7} {'SKOR':>5}  {'DURUM':<15}")
-        print("-"*100)
-        
-        for _, row in top.iterrows():
-            symbol = row['symbol']
-            price = row['price']
-            volume = f"{row['volume_ratio']:.1f}x"
-            rsi = f"{row['rsi']:.0f}"
-            macd = "AL" if row['macd_cross'] else row['macd_signal'][:"""
+"""
 BIST MOMENTUM AVCISI - Strateji 1
 Odak: Hacim + RSI + MACD + Bollinger Squeeze
-Basit, etkili, net sinyaller!
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import datetime
 import warnings
 import requests
@@ -97,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+
 
 class TelegramNotifier:
     def __init__(self, bot_token, chat_id):
@@ -205,25 +132,95 @@ class DataFetcher:
 
 
 class MomentumScanner:
-    """
-    MOMENTUM AVCISI STRATEJİSİ
-    4 Temel Gösterge:
-    1. HACİM (En önemli - momentum kanıtı)
-    2. RSI (Aşırı bölgeler ve momentum gücü)
-    3. MACD (Trend yönü ve momentum değişimi)
-    4. BOLLINGER SQUEEZE (Patlama potansiyeli)
-    """
-    
     def __init__(self, telegram_notifier=None):
         self.symbols = [
-            'AKBNK.IS', 'GARAN.IS', 'ISCTR.IS', 'YKBNK.IS', 'HALKB.IS', 'VAKBN.IS',
-            'KCHOL.IS', 'SAHOL.IS', 'DOHOL.IS', 'AGHOL.IS',
-            'THYAO.IS', 'TUPRS.IS', 'PETKM.IS', 'ASELS.IS', 'EREGL.IS',
-            'ARCLK.IS', 'VESTL.IS', 'TOASO.IS', 'FROTO.IS', 'SISE.IS',
-            'TTKOM.IS', 'TCELL.IS', 'ENKA.IS', 'AKSEN.IS',
-            'KRDMD.IS', 'SODA.IS', 'SASA.IS', 'BIMAS.IS', 'ENKAI.IS',
-            'TTRAK.IS', 'PGSUS.IS', 'TAVHL.IS', 'KOZAL.IS', 'EKGYO.IS',
-            'MGROS.IS', 'SOKM.IS', 'ULKER.IS', 'KONTR.IS', 'AEFES.IS'
+     'JANTs.IS', 'KAPLM.IS', 'KAREL.IS', 'KARSN.IS', 'KARTN.IS', 'KATMR.IS',
+    'KAYSE.IS', 'KBORU.IS', 'KCAER.IS', 'KCHOL.IS', 'KENT.IS', 'KERVN.IS',
+    'KFEIN.IS', 'KIMMR.IS', 'KLKIM.IS', 'KLMSN.IS', 'KLNMA.IS', 'KLRHO.IS',
+    'KLSER.IS', 'KLSYN.IS', 'KLYPv.IS', 'KMPUR.IS', 'KNFRT.IS', 'KOCMT.IS',
+    'KONKA.IS', 'KONTR.IS', 'KONYA.IS', 'KOPOL.IS', 'KORDS.IS', 'KOTON.IS',
+    'KOZAA.IS', 'KOZAL.IS', 'KRDMA.IS', 'KRONT.IS', 'KRPLS.IS', 'KRSTL.IS',
+    'KRTEK.IS', 'KRVGD.IS', 'KSTUR.IS', 'KTLEV.IS', 'KUTPO.IS', 'KUVVA.IS',
+    'KZBGY.IS', 'KZGYO.IS', 'LIDER.IS', 'LIDFA.IS', 'LILAK.IS', 'LINK.IS',
+    'LKMNH.IS', 'Lmkdc.IS', 'LOGO.IS', 'LRSHO.IS', 'LUKSK.IS', 'LYDHO.IS',
+    'LYDYE.IS', 'MAALT.IS', 'MACKO.IS', 'MAGEN.IS', 'MAKIM.IS', 'MAKTK.IS',
+    'MANAS.IS', 'MARBL.IS', 'MARKA.IS', 'MARMr.IS', 'MARTI.IS', 'MNDTR.IS',
+    'MOBTL.IS', 'MOGAN.IS', 'MOPAS.IS', 'MPARK.IS', 'MRSHL.IS', 'MTRKS.IS',
+    'MTRYO.IS', 'MZHLD.IS', 'NATEN.IS', 'NETAS.IS', 'NIBAS.IS', 'NTGAZ.IS',
+    'NTHOL.IS', 'NUHCM.IS', 'OBAMS.IS', 'OBASE.IS', 'ODAS.IS', 'ODINE.IS',
+    'OFSYM.IS', 'ONCSM.IS', 'ONRYT.IS', 'ORCAY.IS', 'ORGE.IS', 'ORMA.IS',
+    'OSMEN.IS', 'OSTIM.IS', 'OTKAR.IS', 'OTTO.IS', 'OYAKC.IS', 'OYAYO.IS',
+    'OYLUM.IS', 'OYYAT.IS', 'OZATD.IS', 'OZrdn.IS', 'OZSUB.IS', 'OZGYO.IS',
+    'PAGYO.IS', 'PAmEL.IS', 'PAPIL.IS', 'PARSN.IS', 'PASEU.IS', 'PATEK.IS',
+    'PCILT.IS', 'PEKGY.IS', 'PENGD.IS', 'PENTA.IS', 'PETKM.IS', 'PETUN.IS',
+    'PGSUS.IS', 'PINSU.IS', 'PKART.IS', 'PKENT.IS', 'PLTUR.IS',
+    'PNLSN.IS', 'PNSUT.IS', 'POLHO.IS', 'POLTK.IS', 'PRdGS.IS', 'PRKAB.IS',
+    'PRKME.IS', 'PRZMA.IS', 'PSDTc.IS', 'QNBtr.IS', 'QNBfk.IS', 'QUAGR.IS', 'RALYH.IS',
+    'RAYsG.IS', 'REEDR.IS', 'ROYAl.IS', 'RNPOL.IS', 'RODRg.IS', 'RTALB.IS',
+    'RUBNS.IS', 'RUZYE.IS', 'RYSAS.IS', 'SAFKR.IS', 'SAHOL.IS', 'SAMAT.IS',
+    'SANEL.IS', 'SANFM.IS', 'SANKO.IS', 'SARKY.IS', 'SASA.IS', 'SAYAS.IS',
+    'SDTTR.IS', 'SEGMn.IS', 'SEGYO.IS', 'SEKfk.IS', 'SEKUR.IS', 'SELEC.IS',
+    'SELVA.IS', 'SERNT.IS', 'SEYKM.IS', 'SILVR.IS', 'SISE.IS', 'SKBNK.IS', 
+    'SKTAS.IS', 'SKYLP.IS', 'SKYMD.IS', 'SMART.IS', 'SMRTG.IS', 'SMRVA.IS',
+    'SNICA.IS', 'SNKRN.IS', 'SNPAM.IS', 'SODSN.IS', 'SOKE.IS', 'SOKM.IS',
+    'SONME.IS', 'SRVGY.IS', 'SUMAS.IS', 'SUNTK.IS', 'SURGY.IS', 'SUWEN.IS',
+    'TABGD.IS', 'TARKM.IS', 'TATEN.IS', 'TATGD.IS', 'TAVHL.IS', 'TBORG.IS',
+    'TCELL.IS', 'Tckrc.IS', 'TDGYO.IS', 'TEKTU.IS', 'TERA.IS', 'TEZOL.IS',
+    'TGSAS.IS', 'THYAO.IS', 'TKFEN.IS', 'TKNsa.IS', 'TLMAN.IS', 'TMPOL.IS',
+    'TMSN.IS', 'TNZTP.IS', 'TOASO.IS', 'TRCAS.IS', 'TRGYO.IS', 'TRILC.IS',
+    'TSKB.IS', 'TSPOR.IS', 'TTKOM.IS', 'TTRaK.IS', 'TUCLk.IS', 'TUKAS.IS',
+    'TUPRS.IS', 'TUREX.IS', 'TURG.IS', 'TURSG.IS', 'UFUK.IS', 'ULAS.IS',
+    'ULKER.IS', 'ULUFA.IS', 'ULUSE.IS', 'ULUun.IS', 'UNLU.IS', 'USAK.IS',
+    'VAKBN.IS', 'VAKFN.IS', 'VAKKO.IS', 'VANGD.IS', 'VBTYZ.IS', 'VERUS.IS',
+    'VESBE.IS', 'VESTL.IS', 'VKFYO.IS', 'VKING.IS', 'VRGYO.IS', 'VSNMD.IS',
+    'YAPRK.IS', 'YATAS.IS', 'YAYLA.IS', 'YBTAS.IS', 'YEOTK.IS', 'YESIL.IS',
+    'YGGYO.IS', 'YIGIT.IS', 'YKBNK.IS', 'YKSLN.IS', 'YONGA.IS', 'YUNSA.IS',
+    'YYAPI.IS', 'YYLGD.IS', 'ZEDUR.IS', 'ZOREN.IS', 'ZRGYO.IS', 'A1CAP.IS',
+    'A1YEN.IS', 'ACSEL.IS', 'ADEL.IS', 'ADESE.IS', 'ADGYO.IS', 'AEFES.IS',
+    'AFYON.IS', 'AGESA.IS', 'AGHOL.IS', 'AGROT.IS', 'AHSGY.IS', 'AKBNK.IS',
+    'AKCNS.IS', 'AKENR.IS', 'AKFIS.IS', 'AKFYE.IS', 'AKGRT.IS', 'AKSA.IS',
+    'AKSEN.IS', 'AKSUE.IS', 'AKYHO.IS', 'ALARK.IS', 'ALBRK.IS', 'ALCAR.IS',
+    'ALCTL.IS', 'ALFAS.IS', 'ALKA.IS', 'ALKIM.IS', 'ALKLC.IS',
+    'ALTNY.IS', 'ALVES.IS', 'ANELE.IS', 'ANGEN.IS', 'ANHYT.IS', 'ANSGR.IS',
+    'ARASE.IS', 'ARCLK.IS', 'ARDYZ.IS', 'ARENA.IS', 'ARMGD.IS', 'ARSAN.IS',
+    'ARTMS.IS', 'ARZUM.IS', 'ASELS.IS', 'ASTOR.IS', 'ASUZU.IS', 'ATATP.IS',
+    'ATEKS.IS', 'ATLAS.IS', 'ATSYH.IS', 'AVGYO.IS', 'AVHOL.IS', 'AVOD.IS',
+    'AVPGY.IS', 'AYCES.IS', 'AYDEM.IS', 'AYEN.IS', 'AYES.IS', 'AYGAZ.IS',
+    'AZTEK.IS', 'BAGFS.IS', 'BAHKM.IS', 'BAKAB.IS', 'BALAT.IS', 'BALSU.IS',
+    'BANVT.IS', 'BARMA.IS', 'BASCM.IS', 'BASGZ.IS', 'BAYRK.IS', 'BEGYO.IS',
+    'BERA.IS', 'BESLR.IS', 'BEYAZ.IS', 'BFREN.IS', 'BIENY.IS', 'BIGCH.IS', 
+    'BIOEN.IS', 'BIZIM.IS', 'BJKAS.IS', 'BLCYT.IS', 'BLUME.IS', 'BMSCH.IS',
+    'BMSTL.IS', 'BNTAS.IS', 'BObet.IS', 'BORLS.IS', 'BORSK.IS', 'BOSSA.IS',
+    'BRISA.IS', 'BRKO.IS', 'BRKSN.IS', 'BRKVY.IS', 'BRLSM.IS', 'BRMEN.IS',
+    'BRSAN.IS', 'BRYAT.IS', 'BSOKE.IS', 'BTCIM.IS', 'BULGs.IS', 'BURCE.IS',
+    'BURVA.IS', 'BVSAN.IS', 'BYDNR.IS', 'CANTE.IS', 'CASA.IS', 'CATES.IS',
+    'CCOLA.IS', 'CELHA.IS', 'CEMAS.IS', 'CEMTS.IS', 'CEMZY.IS', 'CEDEM.IS',
+    'Cmbtn.IS', 'CIMSA.IS', 'CLEBI.IS', 'CMBTN.IS', 'CMEnT.IS', 'CONSE.IS',
+    'COSMO.IS', 'CRDFA.IS', 'CRFSA.IS', 'CUSAN.IS', 'CVKmD.IS', 'CWENE.IS',
+    'DAGI.IS', 'DAPGM.IS', 'DARDL.IS', 'DCTTr.IS', 'DENGE.IS', 'DERHL.IS',
+    'DERIM.IS', 'DESA.IS', 'DESPC.IS', 'DEVA.IS', 'DGATE.IS', 'DGNMO.IS',
+    'DIRIT.IS', 'DITAS.IS', 'DMRgd.IS', 'DMSAS.IS', 'DNISI.IS', # DİRİT -> DIRIT
+    'DOAS.IS', 'DOBUR.IS', 'DOFER.IS', 'DOFRB.IS', 'DOGUB.IS', 'DOHOL.IS',
+    'DOKTA.IS', 'DSTKF.IS', 'DUNYH.IS', 'DURDO.IS', 'DURkn.IS', 'DYOBY.IS',
+    'DZgYO.IS', 'EBEBK.IS', 'ECILC.IS', 'ECZYT.IS', 'EDATA.IS', 'EDIP.IS',
+    'EFORc.IS', 'EGEEN.IS', 'EGEGY.IS', 'EGEPO.IS', 'EGgUb.IS', 'EGPRO.IS',
+    'EGSER.IS', 'EKIZ.IS', 'EKOS.IS', 'EKSUN.IS', 'ELITE.IS', 'EMKEL.IS',
+    'EMNIS.IS', 'ENDAe.IS', 'ENERY.IS', 'ENJSA.IS', 'ENKAI.IS', 'ENSRI.IS',
+    'ENTRA.IS', 'EPLAS.IS', 'ERBOS.IS', 'ERCb.IS', 'EREGL.IS', 'ERSU.IS',
+    'ESCAR.IS', 'ESCOM.IS', 'ESEN.IS', 'ETILR.IS', 'ETYAT.IS', 'EUHOL.IS', 
+    'EUKYO.IS', 'EUPWR.IS', 'EUREN.IS', 'EUYO.IS', 'FADE.IS', 'FENER.IS',
+    'FLAP.IS', 'FMIzp.IS', 'FONET.IS', 'FORMT.IS', 'FORTE.IS', 'FRIGO.IS', 
+     'MAALT.IS', 'MACKO.IS','MAGEN.IS','MAKIM.IS', 'MAKTK.IS', 'MANAS.IS', 'MARBL.IS',
+    'MARKA.IS', 'MARMR.IS',  'MARTI.IS', 'MAVI.IS', 'MEDTR.IS', 'MEGAP.IS', 'MEGMT.IS',
+    'MEKAG.IS', 'MEPET.IS', 'MERCN.IS', 'MERIT.IS', 'MERKO.IS', 'METRO.IS', 'MGROS.IS',
+    'MHRGY.IS', 'MIATK.IS', 'MMCAS.IS', 'MNDRS.IS', 'MNDTR.IS', 'MOBTL.IS', 'MOGAN.IS',
+    'MOPAS.IS', 'MPARK.IS', 'MRGYO.IS', 'MRSHL.IS', 'MSGYO.IS', 'MTRKS.IS', 'MTRYO.IS',
+    'MZHLD.IS','HEKTS.IS', 'HKTM.IS', 'HDFGS.IS', 'HRKET.IS', 'HTTBt.IS', 'HUBVC.IS', 'HUNER.IS',
+    'HURGZ.IS', 'ICBCT.IS', 'ICUGS.IS', 'IEYHO.IS', 'IHAAS.IS', 'IHEVA.IS',
+    'IHGZT.IS', 'IHLAS.IS', 'IHLGM.IS', 'IHYAY.IS', 'IMASM.IS', 'INDES.IS',
+    'INFO.IS', 'INGRM.IS', 'INTEK.IS', 'INTEM.IS', 'INVEO.IS', 'INVES.IS',
+    'IPEKE.IS', 'ISBIR.IS', 'ISDMR.IS', 'ISFIN.IS', 'ISKPL.IS', 'ISMEN.IS',
+    'ISSEN.IS', 'IZMDC.IS', 'IZenr.IS', 'IZFAS.IS', 'IZINV'
         ]
         
         self.results = []
@@ -232,7 +229,6 @@ class MomentumScanner:
         self.fetcher = DataFetcher()
     
     def calculate_rsi(self, df, period=14):
-        """RSI - Momentum gücü"""
         delta = df['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -240,7 +236,6 @@ class MomentumScanner:
         return 100 - (100 / (1 + rs))
     
     def calculate_macd(self, df):
-        """MACD - Trend ve momentum yönü"""
         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
         macd = exp1 - exp2
@@ -249,7 +244,6 @@ class MomentumScanner:
         return macd, signal, histogram
     
     def calculate_bollinger_squeeze(self, df, period=20, std_dev=2):
-        """Bollinger Bands - Patlama potansiyeli"""
         sma = df['Close'].rolling(window=period).mean()
         std = df['Close'].rolling(window=period).std()
         upper = sma + (std * std_dev)
@@ -258,65 +252,54 @@ class MomentumScanner:
         bandwidth = ((upper - lower) / (sma + 1e-10)) * 100
         avg_bandwidth = bandwidth.rolling(50).mean()
         
-        # Squeeze: Mevcut bandwidth, ortalamanın %70'inden küçükse
         is_squeeze = bandwidth < (avg_bandwidth * 0.7)
-        
-        # Fiyatın bantlara göre pozisyonu
         percent_b = (df['Close'] - lower) / ((upper - lower) + 1e-10)
         
         return bandwidth.iloc[-1], is_squeeze.iloc[-1], percent_b.iloc[-1]
     
+    def calculate_stochastic(self, df, period=14, smooth_k=3, smooth_d=3):
+        low_min = df['Low'].rolling(window=period).min()
+        high_max = df['High'].rolling(window=period).max()
+        k_percent = 100 * ((df['Close'] - low_min) / ((high_max - low_min) + 1e-10))
+        k_percent = k_percent.rolling(window=smooth_k).mean()
+        d_percent = k_percent.rolling(window=smooth_d).mean()
+        return k_percent, d_percent
+    
     def analyze_stock(self, symbol):
-        """Momentum analizi - Sadece 4 gösterge!"""
         df = self.fetcher.fetch(symbol)
         
         if df is None or len(df) < 30:
             return None
         
         try:
-            # Temel fiyat bilgileri
             current_price = float(df['Close'].iloc[-1])
             prev_price = float(df['Close'].iloc[-2])
             price_change = ((current_price - prev_price) / prev_price) * 100
             
-            # ═══════════════════════════════════════
-            # 1️⃣ HACİM ANALİZİ (En Önemli!)
-            # ═══════════════════════════════════════
             avg_volume_20 = df['Volume'].rolling(20).mean().iloc[-1]
             current_volume = df['Volume'].iloc[-1]
             volume_ratio = current_volume / (avg_volume_20 + 1e-10)
             
-            # ═══════════════════════════════════════
-            # 2️⃣ RSI - Momentum Gücü
-            # ═══════════════════════════════════════
             rsi = float(self.calculate_rsi(df).iloc[-1])
             
-            # ═══════════════════════════════════════
-            # 3️⃣ MACD - Trend Yönü
-            # ═══════════════════════════════════════
             macd, signal, histogram = self.calculate_macd(df)
             macd_value = float(macd.iloc[-1])
             signal_value = float(signal.iloc[-1])
             histogram_value = float(histogram.iloc[-1])
             
-            # MACD sinyalleri
-            macd_bullish = macd_value > signal_value  # Pozitif momentum
-            macd_cross = histogram_value > 0 and histogram.iloc[-2] <= 0  # Yeni AL sinyali
-            macd_strong = histogram_value > histogram.iloc[-2]  # Güçleniyor
+            macd_bullish = macd_value > signal_value
+            macd_cross = histogram_value > 0 and histogram.iloc[-2] <= 0
+            macd_strong = histogram_value > histogram.iloc[-2]
             
-            # ═══════════════════════════════════════
-            # 4️⃣ BOLLINGER SQUEEZE - Patlama Potansiyeli
-            # ═══════════════════════════════════════
             bb_width, is_squeeze, bb_position = self.calculate_bollinger_squeeze(df)
             
-            # ═══════════════════════════════════════
-            # SKORLAMA SİSTEMİ (Toplam 100 puan)
-            # ═══════════════════════════════════════
+            stoch_k, stoch_d = self.calculate_stochastic(df)
+            stoch_k_value = float(stoch_k.iloc[-1])
+            
             score = 0
             signals = []
             risk_level = "Orta"
             
-            # HACİM SKORU (0-35 puan) - En önemli!
             if volume_ratio > 4:
                 score += 35
                 signals.append(f"💥 DEV HACİM: {volume_ratio:.1f}x")
@@ -329,74 +312,55 @@ class MomentumScanner:
             elif volume_ratio > 1.5:
                 score += 15
                 signals.append(f"📈 Artmış hacim: {volume_ratio:.1f}x")
-            elif volume_ratio < 0.7:
-                signals.append(f"⚠️ Düşük hacim: {volume_ratio:.1f}x")
             
-            # RSI SKORU (0-25 puan)
-            if 45 < rsi < 55:  # İdeal momentum bölgesi
+            if 45 < rsi < 55:
                 score += 25
                 signals.append(f"🎯 Perfect RSI: {rsi:.0f}")
-            elif 40 < rsi < 60:  # İyi momentum
+            elif 40 < rsi < 60:
                 score += 20
                 signals.append(f"✅ İyi RSI: {rsi:.0f}")
-            elif 30 < rsi < 40:  # Toparlanma fırsatı
+            elif 30 < rsi < 40:
                 score += 15
                 signals.append(f"📍 RSI toparlanıyor: {rsi:.0f}")
-            elif rsi < 30:  # Aşırı satım - dikkatli olun
+            elif rsi < 30:
                 score += 10
                 signals.append(f"🔽 Aşırı satım: RSI {rsi:.0f}")
-            elif rsi > 70:  # Aşırı alım - risk!
+            elif rsi > 70:
                 signals.append(f"⚠️ AŞIRI ALIM: RSI {rsi:.0f}")
                 risk_level = "Yüksek"
             
-            # MACD SKORU (0-25 puan)
-            if macd_cross:  # Yeni AL sinyali
+            if macd_cross:
                 score += 25
                 signals.append("🚀 MACD YENİ AL SİNYALİ!")
-            elif macd_bullish and macd_strong:  # Güçlü pozitif momentum
+            elif macd_bullish and macd_strong:
                 score += 20
                 signals.append("💪 MACD güçlü pozitif")
-            elif macd_bullish:  # Pozitif ama zayıf
+            elif macd_bullish:
                 score += 12
                 signals.append("📈 MACD pozitif")
-            elif not macd_bullish and macd_strong:  # Negatif ama güçleniyor
-                score += 8
-                signals.append("⚡ MACD toparlanıyor")
-            else:
-                signals.append("📉 MACD negatif")
             
-            # BOLLINGER SQUEEZE SKORU (0-15 puan)
-            if is_squeeze and bb_position < 0.3:  # Alt bölgede sıkışma
+            if is_squeeze and bb_position < 0.3:
                 score += 15
-                signals.append("🎯 BB SQUEEZE + ALT BÖLGE = PATLAMA FIRSATI!")
-            elif is_squeeze:  # Genel sıkışma
+                signals.append("🎯 BB SQUEEZE + ALT BÖLGE!")
+            elif is_squeeze:
                 score += 10
-                signals.append("⚡ Bollinger daralması - patlama yakın")
-            elif bb_position < 0.2:  # Alt banta yakın
+                signals.append("⚡ Bollinger daralması")
+            elif bb_position < 0.2:
                 score += 8
                 signals.append("📍 Alt banda yakın")
-            elif bb_position > 0.85:  # Üst banta yakın - risk!
-                signals.append("⚠️ Üst banda yakın - dikkat")
-                risk_level = "Yüksek"
             
-            # FİYAT HAREKETİ BONUS (0-10 puan)
             if price_change > 5:
                 score += 10
                 signals.append(f"🚀 Güçlü yükseliş: +{price_change:.1f}%")
             elif price_change > 2:
                 score += 6
                 signals.append(f"📈 Artış: +{price_change:.1f}%")
-            elif price_change < -5:
-                risk_level = "Yüksek"
-                signals.append(f"⚠️ Düşüş: {price_change:.1f}%")
             
-            # Risk seviyesi düzeltmesi
             if score >= 80:
                 risk_level = "Düşük"
             elif score >= 60 and risk_level != "Yüksek":
                 risk_level = "Orta"
             
-            # Sinyal kategorisi
             if score >= 75 and volume_ratio > 2:
                 signal_type = "🔥 GÜÇLÜ AL"
             elif score >= 60:
@@ -415,7 +379,8 @@ class MomentumScanner:
                 'macd_signal': 'Pozitif' if macd_bullish else 'Negatif',
                 'macd_cross': macd_cross,
                 'bb_squeeze': is_squeeze,
-                'bb_position': bb_position * 100,  # Yüzde olarak
+                'bb_position': bb_position * 100,
+                'stoch_k': stoch_k_value,
                 'score': score,
                 'risk_level': risk_level,
                 'signal_type': signal_type,
@@ -427,7 +392,6 @@ class MomentumScanner:
             return None
     
     def scan_all(self, max_workers=8):
-        """Paralel tarama"""
         print("="*70)
         print("🎯 MOMENTUM AVCISI - BIST TARAMASI")
         print("="*70)
@@ -438,7 +402,7 @@ class MomentumScanner:
                 f"🎯 *MOMENTUM AVCISI*\n\n"
                 f"📊 {len(self.symbols)} hisse taranıyor\n"
                 f"⏰ {datetime.now().strftime('%H:%M')}\n"
-                f"🎲 Hacim + RSI + MACD + BB Squeeze"
+                f"🎲 Hacim + RSI + MACD + BB"
             )
         
         start = time.time()
@@ -461,7 +425,7 @@ class MomentumScanner:
                     else:
                         self.failed.append(symbol)
                         print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
-                except Exception as e:
+                except:
                     self.failed.append(symbol)
                     print(f"[{done}/{len(self.symbols)}] {symbol:12} ❌")
         
@@ -481,7 +445,6 @@ class MomentumScanner:
         return self.df
     
     def print_beautiful_table(self, top_n=15):
-        """Güzel formatlanmış tablo"""
         if len(self.df) == 0:
             return
         
@@ -499,7 +462,6 @@ class MomentumScanner:
             volume = f"{row['volume_ratio']:.1f}x"
             rsi = f"{row['rsi']:.0f}"
             
-            # MACD düzgün göster
             if row['macd_cross']:
                 macd = "🚀AL"
             elif row['macd_signal'] == 'Pozitif':
@@ -517,7 +479,6 @@ class MomentumScanner:
         print("="*110 + "\n")
     
     def send_report(self, top_n=15):
-        """Sadece tablo - detay yok!"""
         if not self.telegram or len(self.df) == 0:
             return
         
@@ -527,7 +488,6 @@ class MomentumScanner:
             self.telegram.send_message("⚠️ Bugün güçlü sinyal yok")
             return
         
-        # Sadece özet tablo
         msg = "🎯 *MOMENTUM AVCISI*\n\n"
         msg += f"```\n"
         msg += f"{'HİSSE':<7} {'FİYAT':>7} {'HCM':>5} {'RSI':>4} {'SKOR':>4}\n"
@@ -548,7 +508,6 @@ class MomentumScanner:
         self.telegram.send_message(msg)
     
     def create_chart(self):
-        """Basit grafik - sadece top 15"""
         if len(self.df) == 0 or not self.telegram:
             return
         
@@ -557,20 +516,17 @@ class MomentumScanner:
             
             top15 = self.df.head(15)
             
-            # Renkler
             colors = []
             for _, row in top15.iterrows():
                 if '🔥' in row['signal_type']:
-                    colors.append('#e74c3c')  # Kırmızı - Güçlü AL
+                    colors.append('#e74c3c')
                 elif '✅' in row['signal_type']:
-                    colors.append('#f39c12')  # Turuncu - AL
+                    colors.append('#f39c12')
                 else:
-                    colors.append('#95a5a6')  # Gri
+                    colors.append('#95a5a6')
             
-            # Bar chart
             bars = ax.barh(top15['symbol'], top15['score'], color=colors)
             
-            # Skorları barlara yaz
             for i, (bar, row) in enumerate(zip(bars, top15.iterrows())):
                 _, r = row
                 width = bar.get_width()
@@ -599,7 +555,7 @@ class MomentumScanner:
 
 def main():
     print("\n" + "="*70)
-    print("🎯 MOMENTUM AVCISI - Basit & Etkili")
+    print("🎯 MOMENTUM AVCISI")
     print("="*70 + "\n")
     
     telegram = None
@@ -607,23 +563,16 @@ def main():
         telegram = TelegramNotifier(BOT_TOKEN, CHAT_ID)
         logger.info("✅ Telegram bağlı")
     else:
-        logger.warning("⚠️  Telegram yok")
+        logger.warning("⚠️ Telegram yok")
     
     scanner = MomentumScanner(telegram_notifier=telegram)
     scanner.scan_all(max_workers=8)
     
     if len(scanner.df) > 0:
-        # Güzel tablo yazdır
         scanner.print_beautiful_table(top_n=15)
-        
-        # CSV kaydet
         scanner.df.to_csv('momentum_scan.csv', index=False)
         logger.info("📁 Sonuçlar kaydedildi")
-        
-        # Telegram'a sadece tablo gönder
         scanner.send_report(top_n=15)
-        
-        # Basit grafik gönder
         scanner.create_chart()
         
         if telegram:
